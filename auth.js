@@ -89,9 +89,10 @@
         (!b.stateOptionId || d.state === b.stateOptionId)).sort((x, y) => y.created - x.created)[0];
       if (!hit) return;
       let st = 'valid';
+      const now = Date.now(), soon = now + 30 * 86400000; // the expiry date wins over a stale ClickUp status
       if (hit.fileStage === S.new || hit.fileStage === S.renewed) st = 'review';
-      else if (/expired/i.test(hit.status)) st = 'expired';
-      else if (/expiring/i.test(hit.status)) st = 'expiring';
+      else if ((hit.due && hit.due < now) || /expired/i.test(hit.status)) st = 'expired';
+      else if ((hit.due && hit.due < soon) || /expiring/i.test(hit.status)) st = 'expiring';
       else if (/missing/i.test(hit.status)) st = 'missing';
       status[b.id] = { st, exp: hit.due ? ddmmyy(hit.due) : '' };
       if (b.kind === 'choice') { const o = b.options.find((x) => x.docTypeId === hit.docType); if (o) choice[b.id] = o.id; }
