@@ -16,6 +16,7 @@
 
   // ---------- screens ----------
   function screen(inner) {
+    $('whoLine').textContent = auth && auth.currentUser ? 'Signed in as ' + (auth.currentUser.email || '') : 'Please sign in';
     $('app').innerHTML = '<section class="card summary" style="max-width:440px;margin:24px auto">' + inner + '</section>';
   }
   function signInScreen(msg) {
