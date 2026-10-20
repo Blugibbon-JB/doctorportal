@@ -6,6 +6,8 @@ const crypto = require('crypto');
 const { onCall, onRequest, HttpsError } = require('firebase-functions/v2/https');
 const { defineSecret, defineString } = require('firebase-functions/params');
 const { setGlobalOptions } = require('firebase-functions/v2');
+const { onSchedule } = require('firebase-functions/v2/scheduler');
+const IN = require('./lib/intake');
 const admin = require('firebase-admin');
 const CU = require('./lib/clickup');
 const G = require('./lib/google');
@@ -294,6 +296,10 @@ exports.clickupWebhook = onRequest({ secrets: [CLICKUP_TOKEN, CLICKUP_WEBHOOK_SE
   if (req.get('X-Signature') !== sig) { res.status(401).send('bad signature'); return; }
   const { event, task_id: id } = req.body || {};
   try {
+    if (event !== 'taskDeleted') { // a reviewer picked the Document Type on an emailed "TO CLASSIFY" file: give it its proper name
+      const t0 = await CU.client(CLICKUP_TOKEN.value()).get('task/' + id);
+      if (/^TO CLASSIFY /.test(t0.name) && CU.dropdownId(t0, CU.F.docType)) await classify(CU.client(CLICKUP_TOKEN.value()), t0).catch((e) => console.error('classify', id, e.message));
+    }
     if (event === 'taskDeleted') {
       const k = (await db.ref('portal/taskIndex/' + id).get()).val();
       if (k) await db.ref('portal/docs/' + k + '/' + id).remove();
@@ -312,3 +318,90 @@ exports.clickupWebhook = onRequest({ secrets: [CLICKUP_TOKEN, CLICKUP_WEBHOOK_SE
 // ---------- 5. Staff view (recruiters): see functions/staff.js ----------
 exports.staff = require('./staff')({ db, CU, G, REQ, fail, key, upperName, inboxFor, openUpload, createSubmission, refreshDocs,
   ensureParent, REF_CFG, refSlot, cleanText, CLICKUP_TOKEN, REF_REQUEST_WEBHOOK });
+
+// ---------- 6. Email intake: hello@ › label "Doctor Documents" → same ClickUp tasks as a portal upload ----------
+// Doctors (or recruiters forwarding for them) email hello+documents@blugibbon.com.au; a Gmail filter labels it.
+// Every 5 minutes: match the doctor (AHPRA number in subject/body, else sender address, else the original
+// sender in a staff forward), save each attachment to their PORTAL UPLOADS folder, guess its box from the file
+// name ("TO CLASSIFY" when unclear), create the submission + document tasks, label the email Done (or Needs
+// attention), and reply to the doctor with what arrived. Needs gmail.modify added to hello@'s delegation.
+const LABELS = REQ.intake.labels;
+const VALID_BOX = new Set(REQ.boxes.map((b) => b.id));
+const gmailLabelQuery = (n) => 'label:' + n.toLowerCase().replace(/[\s/]+/g, '-');
+
+exports.intakeEmails = onSchedule({ schedule: 'every 5 minutes', timeZone: 'Australia/Sydney', secrets: [CLICKUP_TOKEN],
+  timeoutSeconds: 540, memory: '512MiB', maxInstances: 1 }, async () => {
+  const L = await G.labelIds([LABELS.intake, LABELS.done, LABELS.attention]);
+  const list = await G.gmail('GET', 'messages?maxResults=10&labelIds=' + L[LABELS.intake] + '&q=' +
+    encodeURIComponent('-' + gmailLabelQuery(LABELS.done) + ' -' + gmailLabelQuery(LABELS.attention)));
+  const cu = CU.client(CLICKUP_TOKEN.value());
+  for (const { id } of list.messages || []) {
+    let r;
+    try { r = await intakeOne(cu, id); } catch (e) { r = { ok: false, note: e.message }; }
+    console.log('intake', id, JSON.stringify(r));
+    await G.gmail('POST', 'messages/' + id + '/modify', { addLabelIds: [r.ok ? L[LABELS.done] : L[LABELS.attention]] });
+  }
+});
+
+async function intakeOne(cu, id) {
+  const msg = await G.gmail('GET', 'messages/' + id + '?format=full');
+  const from = IN.addressOf(IN.header(msg, 'From'));
+  if (!from || from === 'hello@blugibbon.com.au' || /no-?reply|mailer-daemon|postmaster/i.test(from)) return { ok: true, skipped: 'own or automated email' };
+  const subject = IN.header(msg, 'Subject'), text = IN.bodyText(msg), staff = /@blugibbon\.com\.au$/.test(from);
+  const files = IN.attachments(msg);
+  if (!files.length) return { ok: false, note: 'no attachments' };
+
+  let doc = null;
+  const rego = IN.findRego(subject) || IN.findRego(text);
+  if (rego) doc = await cu.findDoctor(rego);
+  if (!doc) { const who = staff ? IN.forwardedSender(text) : from; if (who) doc = await cu.findDoctorByEmail(who); }
+  if (!doc) return { ok: false, note: 'no doctor matched (' + (rego || from) + ')' };
+  const medReg = CU.field(doc, CU.F.medReg);
+  if (!medReg) return { ok: false, note: 'doctor has no Med Reg #' };
+  const cachePath = 'portal/staffCache/' + doc.id;
+  const user = { medReg, medKey: key(medReg), doctorId: doc.id, name: doc.name.trim(), inboxId: ((await db.ref(cachePath).get()).val() || {}).inboxId };
+  const inboxId = await inboxFor(cachePath, user);
+
+  const saved = [];
+  for (const a of files) {
+    const g = IN.guessBox(a.fileName, VALID_BOX);
+    const box = REQ.boxes.find((b) => b.id === g.boxId);
+    const att = await G.gmail('GET', 'messages/' + id + '/attachments/' + a.attachmentId);
+    const safe = a.fileName.replace(/[\\/:*?"<>|]/g, '_').slice(0, 120);
+    const f = await G.uploadBuffer({ folderId: inboxId, name: boxPrefix(box, g.choice).prefix + ' ' + upperName(user.name) + ' - ' + safe,
+      mimeType: a.mimeType, data: Buffer.from(att.data, 'base64url') });
+    saved.push({ boxId: g.boxId, choice: g.choice, fileId: f.id, fileName: a.fileName });
+  }
+  await createSubmission(cu, user, doc, saved, inboxId, { via: 'email from ' + from + (subject ? ' ("' + subject.slice(0, 80) + '")' : ''),
+    submittedBy: staff ? CU.SUBMITTED_BY_RECRUITER : CU.SUBMITTED_BY_DOCTOR, states: [], level: '' });
+  if (!staff) {
+    await G.sendMail(from, /^re:/i.test(subject) ? subject : 'Re: ' + (subject || 'Your documents'),
+      // Only name the doctor if this is their own address (an AHPRA number in the subject can come from anyone).
+      (String(CU.field(doc, CU.F.email) || '').trim().toLowerCase() === from ? 'Hi Dr ' + user.name + ',' : 'Hi,') + '\n\nThanks, we’ve received ' + saved.length + ' document' + (saved.length > 1 ? 's' : '') + ':\n\n' +
+      saved.map((x) => '• ' + x.fileName).join('\n') + '\n\nOur team will check them and let you know if anything else is needed. ' +
+      'You can also see where your documents are up to, and upload new ones, at https://blugibbon-jb.github.io/doctorportal/\n\nBlugibbon Medical Recruitment',
+      { messageId: IN.header(msg, 'Message-ID'), threadId: msg.threadId }).catch((e) => console.error('intake reply', e.message));
+  }
+  return { ok: true, doctor: user.name, files: saved.map((x) => x.boxId) };
+}
+
+// "TO CLASSIFY JOSH TEST (scan0001)" + Document Type (and State for WWCC) set by the reviewer
+// -> "6.2 BG NSW WWCC EXP JOSH TEST", supersede set as a portal upload would, so Filing works unchanged.
+async function classify(cu, t) {
+  const dt = CU.dropdownId(t, CU.F.docType), st = CU.dropdownId(t, CU.F.state);
+  const cands = REQ.boxes.filter((b) => b.id !== 'unsorted' && (b.docTypeId === dt || (b.options || []).some((o) => o.docTypeId === dt)));
+  const box = cands.length === 1 ? cands[0] : cands.find((b) => b.stateOptionId && b.stateOptionId === st);
+  if (!box) return; // e.g. a WWCC with no state picked yet: wait for the next update
+  const opt = box.kind === 'choice' ? box.options.find((o) => o.docTypeId === dt) : null;
+  const m = /^(.*?)(\s\(.*\))?$/.exec(t.name.replace(/^TO CLASSIFY /, ''));
+  const name = (opt ? opt.namePrefix : box.namePrefix) + ' ' + m[1] + (box.multi && m[2] ? m[2] : '');
+  if (box.supersede) {
+    const medReg = CU.field(t, CU.F.medReg);
+    const prev = (await cu.listDocs(medReg)).filter((x) => x.id !== t.id && CU.dropdownId(x, CU.F.docType) === dt &&
+      CU.dropdownId(x, CU.F.fileStage) === CU.STAGE.filed && (!box.stateOptionId || CU.dropdownId(x, CU.F.state) === box.stateOptionId))
+      .sort((a, b) => Number(b.date_created) - Number(a.date_created))[0];
+    if (prev) { await cu.setField(t.id, CU.F.supersedes, prev.id); await cu.setField(t.id, CU.F.fileStage, CU.STAGE.renewed); }
+  }
+  await cu.put('task/' + t.id, { name });
+  console.log('classified', t.id, '->', name);
+}

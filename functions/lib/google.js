@@ -47,32 +47,71 @@ async function startResumable({ folderId, name, mimeType, size, origin }) {
   return loc;
 }
 
+// Server-side upload (email attachments): small enough to send in one request.
+async function uploadBuffer({ folderId, name, mimeType, data }) {
+  const boundary = 'bgportal' + Date.now();
+  const meta = JSON.stringify({ name, parents: [folderId] });
+  const body = Buffer.concat([
+    Buffer.from('--' + boundary + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' + meta + '\r\n--' + boundary + '\r\nContent-Type: ' + (mimeType || 'application/octet-stream') + '\r\n\r\n'),
+    data, Buffer.from('\r\n--' + boundary + '--')]);
+  const res = await drive('POST', 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&fields=id,name,parents,webViewLink',
+    body, { 'Content-Type': 'multipart/related; boundary=' + boundary });
+  return res.data;
+}
+
 async function getFile(fileId) {
   return (await drive('GET', 'files/' + fileId + '?supportsAllDrives=true&fields=id,name,parents,webViewLink,size,mimeType')).data;
 }
 
 // ---------- Gmail as hello@ via domain-wide delegation (signed by IAM, no key) ----------
 const SENDER = 'hello@blugibbon.com.au';
-async function gmailToken() {
+const SEND = 'https://www.googleapis.com/auth/gmail.send';
+const MODIFY = 'https://www.googleapis.com/auth/gmail.modify'; // read + label hello@ (email intake); needs adding to the delegation
+const tokens = {};
+async function gmailToken(scope = SEND) {
+  if (tokens[scope] && tokens[scope].exp > Date.now() + 60000) return tokens[scope].token;
   const base = new GoogleAuth({ scopes: ['https://www.googleapis.com/auth/cloud-platform'] });
   const c = await base.getClient();
   const email = (await base.getCredentials()).client_email;
   const now = Math.floor(Date.now() / 1000);
-  const claims = { iss: email, sub: SENDER, scope: 'https://www.googleapis.com/auth/gmail.send', aud: 'https://oauth2.googleapis.com/token', iat: now, exp: now + 3600 };
+  const claims = { iss: email, sub: SENDER, scope, aud: 'https://oauth2.googleapis.com/token', iat: now, exp: now + 3600 };
   const signed = await c.request({ method: 'POST',
     url: 'https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/' + email + ':signJwt', data: { payload: JSON.stringify(claims) } });
   const tok = await fetch('https://oauth2.googleapis.com/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: 'grant_type=' + q('urn:ietf:params:oauth:grant-type:jwt-bearer') + '&assertion=' + signed.data.signedJwt });
   const out = await tok.json();
-  if (!out.access_token) throw new Error('Gmail auth failed: ' + JSON.stringify(out).slice(0, 200));
+  if (!out.access_token) throw new Error('Gmail auth failed (' + scope.split('/').pop() + '): ' + JSON.stringify(out).slice(0, 200));
+  tokens[scope] = { token: out.access_token, exp: Date.now() + (out.expires_in || 3600) * 1000 };
   return out.access_token;
 }
-async function sendMail(to, subject, text) {
-  const raw = Buffer.from(['From: Blugibbon <' + SENDER + '>', 'To: ' + to, 'Subject: ' + subject,
-    'Content-Type: text/plain; charset=UTF-8', '', text].join('\r\n')).toString('base64url');
+// reply: { messageId, threadId } to send as a reply in the same Gmail thread.
+async function sendMail(to, subject, text, reply) {
+  const enc = (v) => /^[\x20-\x7e]*$/.test(v) ? v : '=?UTF-8?B?' + Buffer.from(v).toString('base64') + '?=';
+  const head = ['From: Blugibbon <' + SENDER + '>', 'To: ' + to, 'Subject: ' + enc(subject), 'Content-Type: text/plain; charset=UTF-8'];
+  if (reply && reply.messageId) head.push('In-Reply-To: ' + reply.messageId, 'References: ' + reply.messageId);
+  const raw = Buffer.from(head.concat(['', text]).join('\r\n')).toString('base64url');
   const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
-    method: 'POST', headers: { Authorization: 'Bearer ' + (await gmailToken()), 'Content-Type': 'application/json' }, body: JSON.stringify({ raw }) });
+    method: 'POST', headers: { Authorization: 'Bearer ' + (await gmailToken()), 'Content-Type': 'application/json' },
+    body: JSON.stringify(reply && reply.threadId ? { raw, threadId: reply.threadId } : { raw }) });
   if (!res.ok) throw new Error('Gmail send -> ' + res.status + ' ' + (await res.text()).slice(0, 200));
 }
 
-module.exports = { findOrCreateFolder, startResumable, getFile, folderIdFromLink, sendMail, NEW_DOCTOR_PARENT, INBOX_NAME };
+// Reading hello@ (email intake). path is relative to users/me/.
+async function gmail(method, path, body) {
+  const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/' + path, { method,
+    headers: { Authorization: 'Bearer ' + (await gmailToken(MODIFY)), 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+  const t = await res.text();
+  if (!res.ok) throw new Error('Gmail ' + method + ' ' + path.split('?')[0] + ' -> ' + res.status + ' ' + t.slice(0, 200));
+  return t ? JSON.parse(t) : {};
+}
+async function labelIds(names) { // finds or creates Gmail labels, returns { name: id }
+  const have = (await gmail('GET', 'labels')).labels || [];
+  const out = {};
+  for (const n of names) {
+    const hit = have.find((l) => l.name.toLowerCase() === n.toLowerCase());
+    out[n] = hit ? hit.id : (await gmail('POST', 'labels', { name: n, labelListVisibility: 'labelShow', messageListVisibility: 'show' })).id;
+  }
+  return out;
+}
+
+module.exports = { uploadBuffer, gmail, labelIds, findOrCreateFolder, startResumable, getFile, folderIdFromLink, sendMail, NEW_DOCTOR_PARENT, INBOX_NAME };

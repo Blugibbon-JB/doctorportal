@@ -1,11 +1,11 @@
-// Staff view backend: one callable, `staff`, with an `action`. Only verified
+// Staff backend (the hosted Reference Requester): one callable, `staff`, with an `action`.
+// Document review stays in ClickUp (Compliance Documents › To Review), so there are no review/upload actions here. Only verified
 // @blugibbon.com.au Google sign-ins get in, and each recruiter can only act on
 // doctors assigned to them in ClickUp. Admins can switch to another recruiter.
 'use strict';
 const { onCall } = require('firebase-functions/v2/https');
 
 const ADMINS = ['josh@blugibbon.com.au', 'gerard@blugibbon.com.au'];
-const REVIEW_STAGES = ['new', 'renewed', 'completed']; // waiting on a reviewer (completed = a reference came back)
 const TEMPLATES = ['professional', 'clinical', 'combined'];
 
 module.exports = (d) => {
@@ -38,17 +38,6 @@ module.exports = (d) => {
     docType: CU.dropdownId(t, CU.F.docType), state: CU.dropdownId(t, CU.F.state), reviewer: CU.dropdownId(t, CU.F.reviewer),
     submittedBy: CU.dropdownId(t, CU.F.submittedBy), due: t.due_date ? Number(t.due_date) : null, created: Number(t.date_created || 0),
     link: CU.field(t, CU.F.gdrive) || '', medReg: CU.field(t, CU.F.medReg) || '' });
-  const docLabel = (t, user) => { // the box label the doctor saw, else the task name without their name
-    const dt = CU.dropdownId(t, CU.F.docType);
-    const b = REQ.boxes.find((x) => x.docTypeId === dt || (x.options || []).some((o) => o.docTypeId === dt));
-    const o = b && b.kind === 'choice' ? b.options.find((x) => x.docTypeId === dt) : null;
-    return (o && o.label) || (b && b.label) || t.name.replace(upperName(user.name), '').replace(/\s+/g, ' ').trim();
-  };
-  const sydneyMidday = (ymd) => { // expiry dates are whole days; noon Sydney avoids landing on the day before in UTC
-    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymd || ''));
-    if (!m) fail('invalid-argument', 'Please enter the expiry date.');
-    return Date.UTC(+m[1], +m[2] - 1, +m[3], 1, 0, 0);
-  };
 
   const actions = {
     async me(cu, me) {
@@ -56,68 +45,17 @@ module.exports = (d) => {
         .map((u) => ({ id: u.id, name: u.username })).sort((a, b) => String(a.name).localeCompare(b.name)) : null };
     },
 
-    // My doctors + everything of theirs waiting for review.
+    // The recruiter's doctors (admins can pick another recruiter).
     async doctors(cu, me, p) {
       const who = me.admin && p.recruiterId ? Number(p.recruiterId) : me.cuId;
       const doctors = (await cu.doctorsFor(who)).map(brief).filter((x) => x.medReg);
-      const regs = new Set(doctors.map((x) => x.medReg));
-      const waiting = [];
-      for (const st of REVIEW_STAGES) {
-        (await cu.byStage(CU.STAGE[st])).forEach((t) => {
-          const x = taskDoc(t);
-          if (regs.has(x.medReg) && x.reviewer !== CU.REVIEW.approved && x.reviewer !== CU.REVIEW.rejected && t.parent) waiting.push(x);
-        });
-      }
-      waiting.sort((a, b) => b.created - a.created);
-      return { doctors: doctors.sort((a, b) => a.name.localeCompare(b.name)), waiting };
+      return { doctors: doctors.sort((a, b) => a.name.localeCompare(b.name)) };
     },
 
     async doctor(cu, me, p) {
       const { doc, user } = await doctorFor(cu, me, p.doctorId);
       const docs = (await cu.listDocs(user.medReg)).filter((t) => t.parent).map(taskDoc);
       return { doctor: Object.assign(brief(doc), { folder: CU.field(doc, CU.F.gdrive) || '' }), docs };
-    },
-
-    // Approve (with expiry where the box has one) or reject. Approving sets "Reviewer Approved?", which
-    // fires the same ClickUp automation as approving in ClickUp, so Filing (2 / 2V) runs exactly as now.
-    async review(cu, me, p) {
-      const t = await cu.get('task/' + String(p.taskId || '').replace(/[^a-z0-9]/gi, ''));
-      const x = taskDoc(t);
-      const docRec = await cu.findDoctor(x.medReg);
-      if (!docRec) fail('not-found', 'Couldn’t find the doctor for this document.');
-      const { user } = await doctorFor(cu, me, docRec.id);
-      if (!REVIEW_STAGES.some((s) => CU.STAGE[s] === x.fileStage)) fail('failed-precondition', 'This document isn’t waiting for review.');
-      if (p.decision === 'approve') {
-        if (p.expiry) await cu.put('task/' + t.id, { due_date: sydneyMidday(p.expiry), due_date_time: false });
-        await cu.setField(t.id, CU.F.reviewer, CU.REVIEW.approved);
-        await cu.post('task/' + t.id + '/comment', { notify_all: false, comment_text: 'Approved in the portal by ' + me.name +
-          (p.expiry ? ' · expiry ' + p.expiry.split('-').reverse().join('/') : '') + '.' }).catch(() => {});
-      } else if (p.decision === 'reject') {
-        const reason = String(p.reason || '').replace(/[<>]/g, '').trim().slice(0, 300);
-        if (!reason) fail('invalid-argument', 'Please say why, so the doctor knows what to send instead.');
-        await cu.setField(t.id, CU.F.reviewer, CU.REVIEW.rejected);
-        await cu.post('task/' + t.id + '/comment', { notify_all: false, comment_text: 'Rejected in the portal by ' + me.name + ': ' + reason }).catch(() => {});
-        const email = CU.field(docRec, CU.F.email);
-        if (email && p.notify !== false) {
-          await G.sendMail(email, 'Please re-upload a document for Blugibbon',
-            'Hi Dr ' + user.name + ',\n\nThanks for sending your documents. We couldn’t accept your ' + docLabel(t, user) + ':\n\n' + reason +
-            '\n\nPlease upload a new copy in your documents portal:\n' + 'https://blugibbon-jb.github.io/doctorportal/' +
-            '\n\nAny questions, just reply to this email or call us on 02 8960 6445.\n\n' + me.name + '\nBlugibbon Medical Recruitment').catch((e) => console.error('reject mail', e.message));
-        }
-      } else fail('invalid-argument', 'Unknown decision.');
-      await d.refreshDocs(cu, user);
-      return { ok: true };
-    },
-
-    // Upload on a doctor's behalf: same Drive folder and ClickUp tasks as the doctor, marked Submitted By: Recruiter.
-    async startUpload(cu, me, p) {
-      const { user, cachePath } = await doctorFor(cu, me, p.doctorId);
-      return d.openUpload(user, await d.inboxFor(cachePath, user), p);
-    },
-    async submit(cu, me, p) {
-      const { doc, user, cachePath } = await doctorFor(cu, me, p.doctorId);
-      return d.createSubmission(cu, user, doc, p.files, await d.inboxFor(cachePath, user),
-        { states: p.states, level: p.level, submittedBy: CU.SUBMITTED_BY_RECRUITER, via: 'the staff portal by ' + me.name });
     },
 
     // The Reference Requester, hosted: staff pick the form types and may edit the message.

@@ -60,6 +60,13 @@ function client(rawToken) {
       }
       return null;
     },
+    // Doctor record by the Email field (email intake: match the sender).
+    async findDoctorByEmail(email) {
+      const q = 'team/' + TEAM + '/task?include_closed=true&subtasks=true&' + DOCTOR_LISTS.map((l) => 'list_ids%5B%5D=' + l).join('&') + '&' +
+        cf([{ field_id: F.email, operator: '=', value: String(email || '').trim().toLowerCase() }]);
+      const out = await call('GET', q);
+      return (out.tasks || []).find((t) => String(field(t, F.email) || '').trim().toLowerCase() === String(email).trim().toLowerCase()) || null;
+    },
     // The "Dr <name>" parent in the Compliance Documents list.
     async findParent(medReg) {
       const out = await call('GET', 'list/' + COMPLIANCE_LIST + '/task?include_closed=true&subtasks=false&' +

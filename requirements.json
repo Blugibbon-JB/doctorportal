@@ -793,6 +793,26 @@
    "formUrl": null,
    "stateOptionId": null,
    "review": "No ClickUp Document Type option for Polio yet - add one?"
+  },
+  {
+   "id": "unsorted",
+   "section": "intake",
+   "label": "To classify",
+   "hint": "Emailed in; the reviewer picks the Document Type in ClickUp",
+   "namePrefix": "TO CLASSIFY",
+   "docTypeId": null,
+   "states": [
+    "NONE"
+   ],
+   "kind": "upload",
+   "expiry": false,
+   "multi": true,
+   "optional": true,
+   "supersede": false,
+   "levels": null,
+   "formUrl": null,
+   "stateOptionId": null,
+   "review": "Email intake only, never shown to doctors"
   }
  ],
  "notInPortal": [
@@ -815,5 +835,13 @@
   ],
   "note": "templates are sent to Make Scenario 4 for every referee: professional + clinical = two separate NSW forms. Use [{\"type\":\"combined\"}] for the single NSW combined form once its Jotform webhooks are set up.",
   "minimum": 2
+ },
+ "intake": {
+  "address": "hello+documents@blugibbon.com.au",
+  "labels": {
+   "intake": "Doctor Documents",
+   "done": "Doctor Documents/Done",
+   "attention": "Doctor Documents/Needs attention"
+  }
  }
 }
