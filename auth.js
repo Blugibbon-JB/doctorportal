@@ -90,7 +90,8 @@
       if (!hit) return;
       let st = 'valid';
       const now = Date.now(), soon = now + 30 * 86400000; // the expiry date wins over a stale ClickUp status
-      if (hit.fileStage === S.new || hit.fileStage === S.renewed) st = 'review';
+      if ((hit.fileStage === S.new || hit.fileStage === S.renewed) && hit.reviewer === req.clickup.reviewerOptions.rejected) st = 'rejected';
+      else if (hit.fileStage === S.new || hit.fileStage === S.renewed) st = 'review';
       else if ((hit.due && hit.due < now) || /expired/i.test(hit.status)) st = 'expired';
       else if ((hit.due && hit.due < soon) || /expiring/i.test(hit.status)) st = 'expiring';
       else if (/missing/i.test(hit.status)) st = 'missing';
@@ -113,7 +114,7 @@
       const after = String(d.name).split(' - ')[1];
       if (after && !e.name) e.name = after.replace(/\s+\d{2}\.\d{2}\.\d{2}.*$/, '').trim();
       const type = /clinical/i.test(d.name) ? 'clinical' : 'professional';
-      const st = d.fileStage === S.filed ? 'done' : /missing/i.test(d.status) ? 'waiting' : 'received';
+      const st = d.fileStage === S.filed ? 'done' : d.fileStage === S.completed ? 'received' : 'waiting';
       e.parts[type] = st;
     });
     return Object.values(bySlot).sort((a, b) => a.slot - b.slot);

@@ -63,6 +63,7 @@
     if (st === 'expiring') return ['Expires ' + s.exp, 'p-expiring'];
     if (st === 'expired') return ['Expired ' + s.exp, 'p-expired'];
     if (st === 'review') return ['In review', 'p-review'];
+    if (st === 'rejected') return ['Not accepted · upload again', 'p-expired'];
     if (isOptional(b)) return ['Not added', 'p-optional'];
     return ['Missing', 'p-missing'];
   }
@@ -156,6 +157,8 @@
         '<div class="refpills">' + pills + '</div></div>';
     }).join('');
     if (!onFile.length) h += '<div class="note">We need references from <b>' + cfg.required + '</b> senior colleagues who have supervised your work, ideally in the last 12 months. Add them below and we’ll email each one a short form.</div>';
+    const got = S.refs.filter(refPartsDone).length;
+    if (cfg.minimum && got >= cfg.minimum && got < cfg.required) h += '<div class="note">' + got + ' references may be enough for some roles. ' + esc(S.profile.recruiter) + ' will confirm, or add one more below.</div>';
     if (!left) return h + '<div class="note">You have ' + cfg.max + ' referees on file. If you need to change one, contact ' + esc(S.profile.recruiter) + '.</div>';
 
     S.refDraft = S.refDraft.slice(0, left);
@@ -221,7 +224,7 @@
     let action;
     if (isForm) action = '<a class="act form" href="' + esc(b.formUrl) + '" target="_blank" rel="noopener">Open form ↗</a>';
     else {
-      const needs = ['missing', 'expired', 'expiring'].includes(st);
+      const needs = ['missing', 'expired', 'expiring', 'rejected'].includes(st);
       const txt = files.length && !b.multi ? 'Replace file' : (files.length ? 'Add another' : (st === 'missing' ? 'Upload' : (needs ? 'Upload new' : 'Replace')));
       action = '<button class="act' + (needs || files.length ? ' go' : '') + '" type="button" data-up="' + b.id + '">' + txt + '</button>';
     }

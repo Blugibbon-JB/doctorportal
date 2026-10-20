@@ -63,11 +63,18 @@
    "doctorRecord": "e6fd10ed-fa46-46ad-9356-3d145271b325",
    "renewed": "1fcdf591-5844-4dba-900d-4e2b43074564",
    "archived": "5a580de8-e267-4a1e-9993-415f79f9ca2e",
-   "processed": "06dc357b-e042-4dc1-a381-766b8294bf7b"
+   "processed": "06dc357b-e042-4dc1-a381-766b8294bf7b",
+   "requested": "1fd2c336-da7b-4ff2-acae-b3ed34662708",
+   "completed": "27ee11c7-8f8d-4e1a-8b88-10bba3bc2205"
   },
   "submittedByOptions": {
    "doctor": "30344cba-83f1-4171-a33b-edfe5bde0872",
    "recruiter": "fec426db-cc78-40ea-b2fd-f782de820be6"
+  },
+  "reviewerOptions": {
+   "approved": "d16bee32-12b1-46cd-b50d-60a63f8db5c7",
+   "rejected": "1c460d8e-9302-4480-8c92-1ea2e96318d8",
+   "confirm": "93f2e556-d775-4bb5-8d85-4745dd704004"
   }
  },
  "boxes": [
@@ -796,7 +803,7 @@
   "Contracts, bank/super/TFN forms: confidential folder, stays separate"
  ],
  "references": {
-  "required": 2,
+  "required": 3,
   "max": 3,
   "templates": [
    {
@@ -806,6 +813,7 @@
     "type": "clinical"
    }
   ],
-  "note": "templates are sent to Make Scenario 4 for every referee: professional + clinical = two separate NSW forms. Use [{\"type\":\"combined\"}] for the single NSW combined form once its Jotform webhooks are set up."
+  "note": "templates are sent to Make Scenario 4 for every referee: professional + clinical = two separate NSW forms. Use [{\"type\":\"combined\"}] for the single NSW combined form once its Jotform webhooks are set up.",
+  "minimum": 2
  }
 }

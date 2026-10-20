@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blugibbon · Staff Compliance</title>
+<link rel="stylesheet" href="portal.css">
+<style>
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tab{height:38px;padding:0 14px;border-radius:8px;border:1px solid var(--line2);background:var(--card);font-weight:600}
+.tab[aria-selected="true"]{background:var(--text);color:var(--bg);border-color:var(--text)}
+.count{display:inline-block;min-width:20px;padding:0 6px;margin-left:6px;border-radius:10px;background:var(--purple-soft);color:var(--purple);font-size:12px;line-height:20px;text-align:center}
+.search{height:42px;border-radius:8px;border:1px solid var(--line2);padding:0 12px;font:inherit;background:var(--card);color:var(--text);width:100%;max-width:360px}
+.list .row{cursor:pointer}.list .row:hover{background:var(--soft)}
+.rv{display:flex;gap:8px;flex-wrap:wrap;align-items:center;width:100%;padding-top:4px}
+.rv input[type=date],.rv input[type=text],.sel{height:38px;border-radius:8px;border:1px solid var(--line2);padding:0 10px;font:inherit;background:var(--card);color:var(--text)}
+.rv input[type=text]{flex:1;min-width:200px}
+.btn.ok{border:0;background:var(--green);color:#fff;font-weight:600}.btn.no{color:var(--red);border-color:var(--red)}
+.btn.sm{height:36px;padding:0 12px}
+.head{padding:18px 22px;display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.head h1{margin:0;font-size:20px}
+textarea.msg{width:100%;min-height:220px;border-radius:8px;border:1px solid var(--line2);padding:10px 12px;font:inherit;background:var(--card);color:var(--text)}
+.chips{display:flex;gap:8px;flex-wrap:wrap;grid-column:1/-1}
+.chip{display:flex;align-items:center;gap:6px;border:1px solid var(--line2);border-radius:20px;padding:6px 12px;font-size:13px}
+.empty{padding:22px;color:var(--muted)}
+.rf .chip input{width:18px;height:18px;padding:0;flex:none}
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <div class="logo" aria-hidden="true">BG</div>
+    <div class="who"><b>Staff · Compliance</b><span id="whoLine">Loading…</span></div>
+    <div class="sp"></div>
+    <span id="mockTag" class="mock hidden">Sample data. Nothing is sent</span>
+    <select id="recSel" class="sel hidden" aria-label="View as recruiter"></select>
+    <a href="#" id="outLink" class="hint hidden">Sign out</a>
+  </div>
+</header>
+<main id="app" aria-live="polite"></main>
+<div id="tray" class="tray hidden">
+  <div class="bar">
+    <b id="trayText"></b><span class="hint">Uploaded for the doctor, marked "Submitted by Recruiter".</span>
+    <div class="sp"></div>
+    <button id="clearBtn" class="btn" type="button">Clear</button>
+    <button id="submitBtn" class="btn primary" type="button">Submit</button>
+  </div>
+</div>
+<div id="toast" class="toast hidden" role="status"></div>
+<input id="picker" type="file" class="hidden" accept=".pdf,.jpg,.jpeg,.png,.heic,.heif,.doc,.docx">
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-functions-compat.js"></script>
+<script src="config.js"></script>
+<script src="staff.js"></script>
+</body>
+</html>

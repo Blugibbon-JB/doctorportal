@@ -86,19 +86,23 @@ exports.linkVerify = onCall(opts, async (req) => {
 exports.startUpload = onCall(opts, async (req) => {
   const uid = needAuth(req);
   const user = await linkedUser(uid);
-  const d = req.data || {};
+  return openUpload(user, await inboxFor('portal/users/' + uid, user), req.data || {});
+});
+
+// Shared by the doctor and staff views: one-time Drive upload, named from the box.
+async function openUpload(user, inboxId, d) {
   const box = REQ.boxes.find((b) => b.id === d.boxId);
   if (!box || box.kind === 'form') fail('invalid-argument', 'Unknown upload box.');
   if (!(d.size > 0) || d.size > MAX_BYTES) fail('invalid-argument', 'Files must be under 50 MB.');
-  const inboxId = await inboxFor(uid, user);
   const { prefix } = boxPrefix(box, d.choice);
   const safe = String(d.fileName || 'file').replace(/[\\/:*?"<>|]/g, '_').slice(0, 120);
   const uploadUrl = await G.startResumable({ folderId: inboxId, name: prefix + ' ' + upperName(user.name) + ' - ' + safe,
     mimeType: d.mimeType, size: d.size, origin: PORTAL_ORIGIN.value() });
   return { uploadUrl };
-});
+}
 
-async function inboxFor(uid, user) {
+// cachePath: where the doctor's folder ids are remembered (the doctor's own record, or a staff cache).
+async function inboxFor(cachePath, user) {
   if (user.inboxId) return user.inboxId;
   const cu = CU.client(CLICKUP_TOKEN.value());
   const doc = await cu.get('task/' + user.doctorId);
@@ -110,7 +114,7 @@ async function inboxFor(uid, user) {
     await cu.setField(doc.id, CU.F.folderId, f.id).catch(() => {});
   }
   const inbox = await G.findOrCreateFolder(folderId, G.INBOX_NAME);
-  await db.ref('portal/users/' + uid).update({ folderId, inboxId: inbox.id });
+  await db.ref(cachePath).update({ folderId, inboxId: inbox.id });
   return inbox.id;
 }
 
@@ -207,11 +211,16 @@ exports.requestReferences = onCall({ secrets: [CLICKUP_TOKEN, REF_REQUEST_WEBHOO
 exports.submit = onCall({ ...opts, timeoutSeconds: 300 }, async (req) => {
   const uid = needAuth(req);
   const user = await linkedUser(uid);
-  const files = ((req.data && req.data.files) || []).slice(0, 40);
-  if (!files.length) fail('invalid-argument', 'Nothing to submit.');
-  const inboxId = await inboxFor(uid, user);
   const cu = CU.client(CLICKUP_TOKEN.value());
   const doc = await cu.get('task/' + user.doctorId);
+  const d = req.data || {};
+  return createSubmission(cu, user, doc, d.files, await inboxFor('portal/users/' + uid, user),
+    { states: d.states, level: d.level, submittedBy: CU.SUBMITTED_BY_DOCTOR, via: 'the doctor portal' });
+});
+
+async function createSubmission(cu, user, doc, filesIn, inboxId, meta) {
+  const files = (Array.isArray(filesIn) ? filesIn : []).slice(0, 40);
+  if (!files.length) fail('invalid-argument', 'Nothing to submit.');
   const NAME = upperName(user.name);
 
   // Check every file really is in this doctor's upload folder.
@@ -229,10 +238,10 @@ exports.submit = onCall({ ...opts, timeoutSeconds: 300 }, async (req) => {
   const list = checked.map((c) => '• ' + boxPrefix(c.box, c.choice).prefix + ': ' + c.original).join('\n');
   const submission = await cu.post('list/' + CU.COMPLIANCE_LIST + '/task', {
     name: 'Dr ' + user.name, assignees, notify_all: true,
-    description: 'Submitted through the doctor portal (' + checked.length + ' file' + (checked.length > 1 ? 's' : '') + ').\n\n' + list +
-      '\n\nStates: ' + ((req.data.states || []).join(', ') || '-') + ' · Level: ' + (req.data.level || '-') + '\nFiles are in the doctor’s Drive folder › ' + G.INBOX_NAME + '.',
+    description: 'Submitted through ' + meta.via + ' (' + checked.length + ' file' + (checked.length > 1 ? 's' : '') + ').\n\n' + list +
+      '\n\nStates: ' + ((meta.states || []).join(', ') || '-') + ' · Level: ' + (meta.level || '-') + '\nFiles are in the doctor’s Drive folder › ' + G.INBOX_NAME + '.',
     custom_fields: [{ id: CU.F.fileStage, value: CU.STAGE.formResponse }, { id: CU.F.medReg, value: user.medReg },
-      { id: CU.F.submittedBy, value: CU.SUBMITTED_BY_DOCTOR }] });
+      { id: CU.F.submittedBy, value: meta.submittedBy }] });
 
   const existing = await cu.listDocs(user.medReg);
   for (const c of checked) {
@@ -248,7 +257,7 @@ exports.submit = onCall({ ...opts, timeoutSeconds: 300 }, async (req) => {
     const fields = [
       { id: CU.F.fileStage, value: prev ? CU.STAGE.renewed : CU.STAGE.new }, { id: CU.F.medReg, value: user.medReg },
       { id: CU.F.sourceSubmission, value: submission.id }, { id: CU.F.submissionDate, value: Date.now() },
-      { id: CU.F.gdrive, value: c.g.webViewLink }, { id: CU.F.submittedBy, value: CU.SUBMITTED_BY_DOCTOR }];
+      { id: CU.F.gdrive, value: c.g.webViewLink }, { id: CU.F.submittedBy, value: meta.submittedBy }];
     if (docTypeId) fields.push({ id: CU.F.docType, value: docTypeId });
     if (c.box.stateOptionId) fields.push({ id: CU.F.state, value: c.box.stateOptionId });
     if (prev) fields.push({ id: CU.F.supersedes, value: prev.id });
@@ -257,13 +266,14 @@ exports.submit = onCall({ ...opts, timeoutSeconds: 300 }, async (req) => {
   }
   await refreshDocs(cu, user);
   return { submissionId: submission.id, count: checked.length };
-});
+}
 
 // ---------- 4. Status copy: ClickUp -> Firebase (read-only to the doctor) ----------
 function slim(t) {
   return { name: t.name, status: (t.status && t.status.status) || '', fileStage: CU.dropdownId(t, CU.F.fileStage),
     docType: CU.dropdownId(t, CU.F.docType), state: CU.dropdownId(t, CU.F.state), reviewer: CU.dropdownId(t, CU.F.reviewer),
-    due: t.due_date ? Number(t.due_date) : null, created: Number(t.date_created || 0), parent: t.parent || null };
+    due: t.due_date ? Number(t.due_date) : null, created: Number(t.date_created || 0), parent: t.parent || null,
+    submittedBy: CU.dropdownId(t, CU.F.submittedBy) };
 }
 async function refreshDocs(cu, user) {
   const tasks = await cu.listDocs(user.medReg);
@@ -298,3 +308,7 @@ exports.clickupWebhook = onRequest({ secrets: [CLICKUP_TOKEN, CLICKUP_WEBHOOK_SE
   } catch (e) { console.error('webhook', id, e.message); }
   res.status(200).send('ok'); // reply after the work: Cloud Run may pause the function once it has answered
 });
+
+// ---------- 5. Staff view (recruiters): see functions/staff.js ----------
+exports.staff = require('./staff')({ db, CU, G, REQ, fail, key, upperName, inboxFor, openUpload, createSubmission, refreshDocs,
+  ensureParent, REF_CFG, refSlot, cleanText, CLICKUP_TOKEN, REF_REQUEST_WEBHOOK });

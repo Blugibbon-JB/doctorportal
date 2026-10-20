@@ -23,10 +23,15 @@ const STAGE = {
   new: '9f1d4c94-0dd8-4b73-8b7a-3d69e9c470e7', filed: 'b1fd8836-7d0b-4d7e-b715-a66247beaf70',
   formResponse: '14316989-94b3-4e52-841e-abf0aea6bee7', doctorRecord: 'e6fd10ed-fa46-46ad-9356-3d145271b325',
   renewed: '1fcdf591-5844-4dba-900d-4e2b43074564', archived: '5a580de8-e267-4a1e-9993-415f79f9ca2e',
-  processed: '06dc357b-e042-4dc1-a381-766b8294bf7b'
+  processed: '06dc357b-e042-4dc1-a381-766b8294bf7b', requested: '1fd2c336-da7b-4ff2-acae-b3ed34662708',
+  completed: '27ee11c7-8f8d-4e1a-8b88-10bba3bc2205'
 };
+const REVIEW = { approved: 'd16bee32-12b1-46cd-b50d-60a63f8db5c7', rejected: '1c460d8e-9302-4480-8c92-1ea2e96318d8',
+  confirm: '93f2e556-d775-4bb5-8d85-4745dd704004' };
+const SUBMITTED_BY_RECRUITER = 'fec426db-cc78-40ea-b2fd-f782de820be6';
 const SUBMITTED_BY_DOCTOR = '30344cba-83f1-4171-a33b-edfe5bde0872';
 
+const memberCache = { at: 0, list: [] };
 function client(rawToken) {
   // Trim stray spaces/newlines from pasting; OAuth-style tokens need 'Bearer'.
   const t = String(rawToken || '').trim();
@@ -60,6 +65,37 @@ function client(rawToken) {
       const out = await call('GET', 'list/' + COMPLIANCE_LIST + '/task?include_closed=true&subtasks=false&' +
         cf([{ field_id: F.medReg, operator: '=', value: medReg }, { field_id: F.fileStage, operator: '=', value: STAGE.doctorRecord }]));
       return (out.tasks || [])[0] || null;
+    },
+    // Workspace members (cached 10 min): used to match a staff sign-in to their ClickUp user.
+    async members() {
+      if (memberCache.at > Date.now() - 600000) return memberCache.list;
+      const out = await call('GET', 'team');
+      const team = (out.teams || []).find((t) => String(t.id) === TEAM) || { members: [] };
+      memberCache.list = team.members.map((m) => m.user).filter(Boolean);
+      memberCache.at = Date.now();
+      return memberCache.list;
+    },
+    // Doctor records assigned to one ClickUp user, across the doctor lists.
+    async doctorsFor(userId) {
+      let page = 0, all = [];
+      for (; page < 30; page++) {
+        const out = await call('GET', 'team/' + TEAM + '/task?include_closed=false&subtasks=false&page=' + page + '&assignees%5B%5D=' + encodeURIComponent(userId) + '&' +
+          DOCTOR_LISTS.map((l) => 'list_ids%5B%5D=' + l).join('&'));
+        all = all.concat(out.tasks || []);
+        if (out.last_page !== false || !(out.tasks || []).length) break;
+      }
+      return all;
+    },
+    // Compliance tasks at one File Stage (e.g. everything waiting for review).
+    async byStage(stageId) {
+      let page = 0, all = [];
+      for (; page < 30; page++) {
+        const out = await call('GET', 'list/' + COMPLIANCE_LIST + '/task?include_closed=true&subtasks=true&page=' + page + '&' +
+          cf([{ field_id: F.fileStage, operator: '=', value: stageId }]));
+        all = all.concat(out.tasks || []);
+        if (out.last_page !== false || !(out.tasks || []).length) break;
+      }
+      return all;
     },
     // Every compliance document task for one doctor (used for supersede and the status copy).
     async listDocs(medReg) {
@@ -99,4 +135,4 @@ function dropdownId(task, id) {
   return f.value;
 }
 
-module.exports = { client, field, dropdownId, medRegVariants, F, STAGE, TEAM, COMPLIANCE_LIST, SUBMITTED_BY_DOCTOR };
+module.exports = { client, field, dropdownId, medRegVariants, F, STAGE, REVIEW, TEAM, COMPLIANCE_LIST, DOCTOR_LISTS, SUBMITTED_BY_DOCTOR, SUBMITTED_BY_RECRUITER };
