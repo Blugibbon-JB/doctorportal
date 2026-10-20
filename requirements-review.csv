@@ -1,0 +1,35 @@
+﻿Section,Box shown to doctor,Shown for,Type,Required?,ClickUp task name starts,Has expiry,Replaces old version,ClickUp doc type set?,Check / question
+1 Baseline,AHPRA registration,ALL,upload,Required,4.1 BG AHPRA EXP NAME,Yes,Yes,Yes,
+1 Baseline,Medical indemnity insurance,ALL,upload,Required,4.2 BG INDEM EXP NAME,Yes,Yes,Yes,
+1 Baseline,Primary medical degree,ALL,upload,Required,3.1 BG Degree NAME,No,No,Yes,
+1 Baseline,Fellowship,ALL,upload,Optional (required for Specialist),3.3 BG [COLLEGE] NAME,No,No,Yes,"Reviewer picks the College dropdown, same as now"
+1 Baseline,"CPD certificates (ALS, BLS, APLS…)",ALL,upload (multi-file),Required,3.4 BG CPD NAME,No,No,Yes,Reviewer fills CPD Name; old CPDs archived manually (your rule)
+1 Baseline,Your CV,ALL,upload,Required,9.0 BG Original CV NAME,No,No,Yes,
+1 Baseline,Driver licence,ALL,upload,Required,5.1 BG ID DL EXP NAME,Yes,Yes,Yes,
+1 Baseline,Passport,ALL,upload,Required,5.2 BG ID PP EXP NAME,Yes,Yes,Yes,
+1 Baseline,100-point ID: one more document,ALL,choice,Required,5.3 BG ID NAME,No,No,Yes,One box with a type picker instead of four boxes
+1 Baseline,Visa / VEVO,ALL,upload,Optional,5.4 BG VISA/VEVO EXP NAME,Yes,Yes,Yes,
+1 Baseline,National police check,ALL,upload,Required,6.1 BG NCRC EXP NAME,Yes,Yes,Yes,
+2 State,NSW Working With Children Check,NSW,upload,Required,6.2 BG NSW WWCC EXP NAME,Yes,Yes,Yes,Supersede matched by state (new)
+2 State,QLD Blue Card,QLD,upload,Required,6.2 BG QLD WWCC EXP NAME,Yes,Yes,Yes,Supersede matched by state (new)
+2 State,VIC Working With Children Check,VIC,upload,Required,6.2 BG VIC WWCC EXP NAME,Yes,Yes,Yes,Supersede matched by state (new)
+2 State,WA Working With Children Check,WA,upload,Required,6.2 BG WA WWCC EXP NAME,Yes,Yes,Yes,Supersede matched by state (new)
+2 State,SA Working With Children Check,SA,upload,Required,6.2 BG SA WWCC EXP NAME,Yes,Yes,Yes,Supersede matched by state (new)
+2 State,TAS Working With Vulnerable People,TAS,upload,Required,6.2 BG TAS WWCC EXP NAME,Yes,Yes,Yes,Supersede matched by state (new)
+2 State,NT Ochre Card,NT,upload,Required,6.2 BG NT WWCC EXP NAME,Yes,Yes,Yes,Supersede matched by state (new)
+2 State,ACT Working With Vulnerable People,ACT,upload,Required,6.2 BG ACT WWCC EXP NAME,Yes,Yes,Yes,No ClickUp state option for ACT yet
+2 State,eMeds / HETI certificates,NSW,upload (multi-file),Required,8.8 BG NSW eMEDS NAME,No,No,MISSING,No ClickUp Document Type option for HETI yet - add one?
+2 State,NSW statutory declaration,NSW,form,Required,6.4 BG NSW STAT DEC NAME,No,No,Yes,Stays a Jotform for now
+2 State,Clinical skills self-assessment,NSW,form,Required (not for Specialist),3.5 BG ASSESSMENT NAME,No,No,MISSING,Stays a Jotform for now
+3 Vaccinations,Full vaccination record (optional shortcut),ALL,upload,Optional,6.3.1 BG VACS RECORD CARD NAME,No,No,Yes,"Reviewer splits it out; keeps the ""drop one record"" option"
+3 Vaccinations,MMR,ALL,upload,Required,6.3.1.1 BG VACS MMR NAME,No,No,Yes,
+3 Vaccinations,Hepatitis B,ALL,upload,Required,6.3.1.2 BG VACS HEP B NAME,No,No,Yes,
+3 Vaccinations,Varicella,ALL,upload,Required,6.3.1.3 BG VACS VARICELLA NAME,No,No,Yes,
+3 Vaccinations,dTpa (Boostrix),ALL,upload,Required,6.3.1.4 BG VACS DTPA EXP NAME,Yes,Yes,Yes,
+3 Vaccinations,TB screening,ALL,upload,Required,6.3.1.5 BG VACS TB NAME,No,No,Yes,
+3 Vaccinations,Hep B statutory declaration,NSW,form,Required,6.3.1.6 BG NSW HEP B STAT DEC NAME,No,No,Yes,
+3 Vaccinations,Flu vaccine,ALL,upload,Required,6.3.1.7 BG VACS FLU NAME,No,No,Yes,
+3 Vaccinations,COVID-19,ALL,upload,Optional,6.3.1.8 BG VACS COVID EXP NAME,Yes,Yes,Yes,"ClickUp option says ""Compulsory"", catalog says ""Recommended"" - which?"
+3 Vaccinations,Hepatitis A,WA,upload,Required,6.3.1.9 BG VACS HEP A NAME,No,No,Yes,
+3 Vaccinations,MRSA screening swabs,WA,upload,Required,6.3.2 MRSA Screening Swabs WA Only NAME,No,No,Yes,
+3 Vaccinations,Polio,SA,upload,Required,6.3.1.10 BG VACS POLIO NAME,No,No,MISSING,No ClickUp Document Type option for Polio yet - add one?

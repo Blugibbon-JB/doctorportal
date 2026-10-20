@@ -1,0 +1,798 @@
+{
+ "version": 1,
+ "generated": "2026-10-20",
+ "source": "BG Master Document Catalog v1.xlsx + Compliance Document Splitter naming",
+ "naming": "ClickUp task name = namePrefix + \" \" + DOCTOR NAME (upper). Filing (Scenario 2) inserts the date before the name on approval, as now.",
+ "sections": [
+  {
+   "id": "base",
+   "title": "Baseline compliance",
+   "sub": "Every doctor needs these"
+  },
+  {
+   "id": "state",
+   "title": "Where you want to work",
+   "sub": "Extra documents for the states you pick"
+  },
+  {
+   "id": "vacc",
+   "title": "Vaccinations",
+   "sub": "Required for all hospital work"
+  },
+  {
+   "id": "refs",
+   "title": "References",
+   "sub": "Add referees and we request them for you"
+  }
+ ],
+ "states": [
+  "NSW",
+  "QLD",
+  "VIC",
+  "WA",
+  "SA",
+  "TAS",
+  "NT",
+  "ACT"
+ ],
+ "levels": [
+  "JMO / RMO",
+  "Registrar",
+  "CMO / SMO",
+  "Specialist"
+ ],
+ "clickup": {
+  "list": "901616167201",
+  "fields": {
+   "fileStage": "007e7962-337d-4df4-b9ba-d1021ff5f1b9",
+   "docType": "d35e57f4-e2ab-41d0-bc81-adec84d5c8bd",
+   "medReg": "118ac6ea-c763-465b-8cf7-3318ed840742",
+   "sourceSubmission": "60b464c2-5b65-4b88-beab-4a9a6c406805",
+   "gdriveLink": "a811e4cf-a421-42f0-b9a8-68f04de592fd",
+   "supersedes": "df513361-c16c-461f-8419-7a97e2529cff",
+   "relatedDoctor": "5624e78f-23c4-4f7d-b4f4-8ba4fa1c63b1",
+   "state": "0a851a52-43fd-43e9-a980-6d8f7c59cc04",
+   "submittedBy": "29a970a2-c47b-419f-a7d2-039714f89b52",
+   "submissionDate": "677957d9-640e-4fda-80be-b1b7666070a8",
+   "reviewer": "9b057797-540f-49fb-a283-4cfe9eb3dba5"
+  },
+  "fileStageOptions": {
+   "new": "9f1d4c94-0dd8-4b73-8b7a-3d69e9c470e7",
+   "filed": "b1fd8836-7d0b-4d7e-b715-a66247beaf70",
+   "formResponse": "14316989-94b3-4e52-841e-abf0aea6bee7",
+   "doctorRecord": "e6fd10ed-fa46-46ad-9356-3d145271b325",
+   "renewed": "1fcdf591-5844-4dba-900d-4e2b43074564",
+   "archived": "5a580de8-e267-4a1e-9993-415f79f9ca2e",
+   "processed": "06dc357b-e042-4dc1-a381-766b8294bf7b"
+  },
+  "submittedByOptions": {
+   "doctor": "30344cba-83f1-4171-a33b-edfe5bde0872",
+   "recruiter": "fec426db-cc78-40ea-b2fd-f782de820be6"
+  }
+ },
+ "boxes": [
+  {
+   "id": "ahpra",
+   "section": "base",
+   "label": "AHPRA registration",
+   "hint": "Your current registration certificate or the AHPRA register printout",
+   "namePrefix": "4.1 BG AHPRA EXP",
+   "docTypeId": "9c2843f2-bc65-4a1d-83f2-52e80d63485c",
+   "states": [
+    "ALL"
+   ],
+   "kind": "upload",
+   "expiry": true,
+   "multi": false,
+   "optional": false,
+   "supersede": true,
+   "levels": null,
+   "formUrl": null,
+   "stateOptionId": null,
+   "review": ""
+  },
+  {
+   "id": "indem",
+   "section": "base",
+   "label": "Medical indemnity insurance",
+   "hint": "Certificate of currency from your insurer",
+   "namePrefix": "4.2 BG INDEM EXP",
+   "docTypeId": "5670b3c1-8361-4738-92c0-ce308143a2be",
+   "states": [
+    "ALL"
+   ],
+   "kind": "upload",
+   "expiry": true,
+   "multi": false,
+   "optional": false,
+   "supersede": true,
+   "levels": null,
+   "formUrl": null,
+   "stateOptionId": null,
+   "review": ""
+  },
+  {
+   "id": "degree",
+   "section": "base",
+   "label": "Primary medical degree",
+   "hint": "Your degree certificate",
+   "namePrefix": "3.1 BG Degree",
+   "docTypeId": "ac92fc5d-bdaa-4866-8f98-659f5610da71",
+   "states": [
+    "ALL"
+   ],
+   "kind": "upload",
+   "expiry": false,
+   "multi": false,
+   "optional": false,
+   "supersede": false,
+   "levels": null,
+   "formUrl": null,
+   "stateOptionId": null,
+   "review": ""
+  },
+  {
+   "id": "fellow",
+   "section": "base",
+   "label": "Fellowship",
+   "hint": "e.g. FACEM, FRACGP. Required for specialist roles",
+   "namePrefix": "3.3 BG [COLLEGE]",
+   "docTypeId": "70da96d9-fad6-477e-af61-72414395e54f",
+   "states": [
+    "ALL"
+   ],
+   "kind": "upload",
+   "expiry": false,
+   "multi": false,
+   "optional": true,
+   "supersede": false,
+   "levels": null,
+   "formUrl": null,
+   "stateOptionId": null,
+   "review": "Reviewer picks the College dropdown, same as now",
+   "requiredForLevels": [
+    "Specialist"
+   ]
+  },
+  {
+   "id": "cpd",
+   "section": "base",
+   "label": "CPD certificates (ALS, BLS, APLS…)",
+   "hint": "Add one or more course certificates",
+   "namePrefix": "3.4 BG CPD",
+   "docTypeId": "bfcc8662-3ad9-4edc-9098-29b29b8e2397",
+   "states": [
+    "ALL"
+   ],
+   "kind": "upload",
+   "expiry": false,
+   "multi": true,
+   "optional": false,
+   "supersede": false,
+   "levels": null,
+   "formUrl": null,
+   "stateOptionId": null,
+   "review": "Reviewer fills CPD Name; old CPDs archived manually (your rule)"
+  },
+  {
+   "id": "cv",
+   "section": "base",
+   "label": "Your CV",
+   "hint": "Any format. We format it for each hospital",
+   "namePrefix": "9.0 BG Original CV",
+   "docTypeId": "d893f869-c3b1-4cde-b982-d80c6c0d3a21",
+   "states": [
+    "ALL"
+   ],
+   "kind": "upload",
+   "expiry": false,
+   "multi": false,
+   "optional": false,
+   "supersede": false,
+   "levels": null,
+   "formUrl": null,
+   "stateOptionId": null,
+   "review": ""
+  },
+  {
+   "id": "dl",
+   "section": "base",
+   "label": "Driver licence",
+   "hint": "Front and back",
+   "namePrefix": "5.1 BG ID DL EXP",
+   "docTypeId": "a41908bb-3f8c-447e-b8b7-278d393f7c60",
+   "states": [
+    "ALL"
+   ],
+   "kind": "upload",
+   "expiry": true,
+   "multi": false,
+   "optional": false,
+   "supersede": true,
+   "levels": null,
+   "formUrl": null,
+   "stateOptionId": null,
+   "review": ""
+  },
+  {
+   "id": "pp",
+   "section": "base",
+   "label": "Passport",
+   "hint": "Photo page",
+   "namePrefix": "5.2 BG ID PP EXP",
+   "docTypeId": "5ed5295a-22b3-4ceb-8401-8a34a732dc7c",
+   "states": [
+    "ALL"
+   ],
+   "kind": "upload",
+   "expiry": true,
+   "multi": false,
+   "optional": false,
+   "supersede": true,
+   "levels": null,
+   "formUrl": null,
+   "stateOptionId": null,
+   "review": ""
+  },
+  {
+   "id": "id100",
+   "section": "base",
+   "label": "100-point ID: one more document",
+   "hint": "Pick which document it is",
+   "namePrefix": "5.3 BG ID",
+   "docTypeId": null,
+   "states": [
+    "ALL"
+   ],
+   "kind": "choice",
+   "expiry": false,
+   "multi": false,
+   "optional": false,
+   "supersede": false,
+   "levels": null,
+   "formUrl": null,
+   "stateOptionId": null,
+   "review": "One box with a type picker instead of four boxes",
+   "options": [
+    {
+     "id": "medicare",
+     "label": "Medicare card",
+     "namePrefix": "5.3 BG ID MEDICARE CARD EXP",
+     "docTypeId": "c0fab635-ad30-4c5e-9e4c-3b763ac8f9e8",
+     "expiry": true
+    },
+    {
+     "id": "birth",
+     "label": "Birth certificate",
+     "namePrefix": "5.3 BG ID BIRTH CERT",
+     "docTypeId": "a9d9121b-16ba-4efe-85a6-bbc4f7733204",
+     "expiry": false
+    },
+    {
+     "id": "bank",
+     "label": "Bank statement",
+     "namePrefix": "5.3 BG ID BANK STATEMENT",
+     "docTypeId": "034557b9-92d3-4da4-8799-31f9837b3c17",
+     "expiry": false
+    },
+    {
+     "id": "utility",
+     "label": "Utility bill",
+     "namePrefix": "5.3 BG ID UTILITY BILL",
+     "docTypeId": "42e2cfa2-f94d-472b-a677-750beecca541",
+     "expiry": false
+    }
+   ]
+  },
+  {
+   "id": "visa",
+   "section": "base",
+   "label": "Visa / VEVO",
+   "hint": "Only if you are not an Australian citizen or permanent resident",
+   "namePrefix": "5.4 BG VISA/VEVO EXP",
+   "docTypeId": "01421207-5d61-47cc-99ca-d5116f08d132",
+   "states": [
+    "ALL"
+   ],
+   "kind": "upload",
+   "expiry": true,
+   "multi": false,
+   "optional": true,
+   "supersede": true,
+   "levels": null,
+   "formUrl": null,
+   "stateOptionId": null,
+   "review": ""
+  },
+  {
+   "id": "ncrc",
+   "section": "base",
+   "label": "National police check",
+   "hint": "Issued in the last 3 years (WA: 12 months)",
+   "namePrefix": "6.1 BG NCRC EXP",
+   "docTypeId": "d23b8006-7e69-4d1b-98d9-77d21c85ffc7",
+   "states": [
+    "ALL"
+   ],
+   "kind": "upload",
+   "expiry": true,
+   "multi": false,
+   "optional": false,
+   "supersede": true,
+   "levels": null,
+   "formUrl": null,
+   "stateOptionId": null,
+   "review": ""
+  },
+  {
+   "id": "wwcc_nsw",
+   "section": "state",
+   "label": "NSW Working With Children Check",
+   "hint": "Card, clearance letter or online verification",
+   "namePrefix": "6.2 BG NSW WWCC EXP",
+   "docTypeId": "7177dd10-38d8-4b02-ac5a-13d20a60a262",
+   "states": [
+    "NSW"
+   ],
+   "kind": "upload",
+   "expiry": true,
+   "multi": false,
+   "optional": false,
+   "supersede": true,
+   "levels": null,
+   "formUrl": null,
+   "stateOptionId": "0740bdc9-62a1-47e5-8390-c20e1cfb04dc",
+   "review": "Supersede matched by state (new)"
+  },
+  {
+   "id": "wwcc_qld",
+   "section": "state",
+   "label": "QLD Blue Card",
+   "hint": "Card, clearance letter or online verification",
+   "namePrefix": "6.2 BG QLD WWCC EXP",
+   "docTypeId": "7177dd10-38d8-4b02-ac5a-13d20a60a262",
+   "states": [
+    "QLD"
+   ],
+   "kind": "upload",
+   "expiry": true,
+   "multi": false,
+   "optional": false,
+   "supersede": true,
+   "levels": null,
+   "formUrl": null,
+   "stateOptionId": "a772540c-b26d-4fb9-84fd-43845fcfdd79",
+   "review": "Supersede matched by state (new)"
+  },
+  {
+   "id": "wwcc_vic",
+   "section": "state",
+   "label": "VIC Working With Children Check",
+   "hint": "Card, clearance letter or online verification",
+   "namePrefix": "6.2 BG VIC WWCC EXP",
+   "docTypeId": "7177dd10-38d8-4b02-ac5a-13d20a60a262",
+   "states": [
+    "VIC"
+   ],
+   "kind": "upload",
+   "expiry": true,
+   "multi": false,
+   "optional": false,
+   "supersede": true,
+   "levels": null,
+   "formUrl": null,
+   "stateOptionId": "30ae899c-29f4-4a72-973e-ee812f4da062",
+   "review": "Supersede matched by state (new)"
+  },
+  {
+   "id": "wwcc_wa",
+   "section": "state",
+   "label": "WA Working With Children Check",
+   "hint": "Card, clearance letter or online verification",
+   "namePrefix": "6.2 BG WA WWCC EXP",
+   "docTypeId": "7177dd10-38d8-4b02-ac5a-13d20a60a262",
+   "states": [
+    "WA"
+   ],
+   "kind": "upload",
+   "expiry": true,
+   "multi": false,
+   "optional": false,
+   "supersede": true,
+   "levels": null,
+   "formUrl": null,
+   "stateOptionId": "c659d0a8-b019-47d8-ae14-5877c1002b5b",
+   "review": "Supersede matched by state (new)"
+  },
+  {
+   "id": "wwcc_sa",
+   "section": "state",
+   "label": "SA Working With Children Check",
+   "hint": "Card, clearance letter or online verification",
+   "namePrefix": "6.2 BG SA WWCC EXP",
+   "docTypeId": "7177dd10-38d8-4b02-ac5a-13d20a60a262",
+   "states": [
+    "SA"
+   ],
+   "kind": "upload",
+   "expiry": true,
+   "multi": false,
+   "optional": false,
+   "supersede": true,
+   "levels": null,
+   "formUrl": null,
+   "stateOptionId": "5d6d48f3-ebee-4585-a7bc-cd7aed5c4d48",
+   "review": "Supersede matched by state (new)"
+  },
+  {
+   "id": "wwcc_tas",
+   "section": "state",
+   "label": "TAS Working With Vulnerable People",
+   "hint": "Card, clearance letter or online verification",
+   "namePrefix": "6.2 BG TAS WWCC EXP",
+   "docTypeId": "7177dd10-38d8-4b02-ac5a-13d20a60a262",
+   "states": [
+    "TAS"
+   ],
+   "kind": "upload",
+   "expiry": true,
+   "multi": false,
+   "optional": false,
+   "supersede": true,
+   "levels": null,
+   "formUrl": null,
+   "stateOptionId": "8b08990b-70a4-4776-bf1d-c8f991726000",
+   "review": "Supersede matched by state (new)"
+  },
+  {
+   "id": "wwcc_nt",
+   "section": "state",
+   "label": "NT Ochre Card",
+   "hint": "Card, clearance letter or online verification",
+   "namePrefix": "6.2 BG NT WWCC EXP",
+   "docTypeId": "7177dd10-38d8-4b02-ac5a-13d20a60a262",
+   "states": [
+    "NT"
+   ],
+   "kind": "upload",
+   "expiry": true,
+   "multi": false,
+   "optional": false,
+   "supersede": true,
+   "levels": null,
+   "formUrl": null,
+   "stateOptionId": "a59c19d4-2494-4dfb-a9fd-1d7cfae8ab87",
+   "review": "Supersede matched by state (new)"
+  },
+  {
+   "id": "wwcc_act",
+   "section": "state",
+   "label": "ACT Working With Vulnerable People",
+   "hint": "Card, clearance letter or online verification",
+   "namePrefix": "6.2 BG ACT WWCC EXP",
+   "docTypeId": "7177dd10-38d8-4b02-ac5a-13d20a60a262",
+   "states": [
+    "ACT"
+   ],
+   "kind": "upload",
+   "expiry": true,
+   "multi": false,
+   "optional": false,
+   "supersede": true,
+   "levels": null,
+   "formUrl": null,
+   "stateOptionId": null,
+   "review": "No ClickUp state option for ACT yet"
+  },
+  {
+   "id": "heti",
+   "section": "state",
+   "label": "eMeds / HETI certificates",
+   "hint": "Locum eMedical orientation and eMR certificates",
+   "namePrefix": "8.8 BG NSW eMEDS",
+   "docTypeId": null,
+   "states": [
+    "NSW"
+   ],
+   "kind": "upload",
+   "expiry": false,
+   "multi": true,
+   "optional": false,
+   "supersede": false,
+   "levels": null,
+   "formUrl": null,
+   "stateOptionId": null,
+   "review": "No ClickUp Document Type option for HETI yet - add one?"
+  },
+  {
+   "id": "nswstat",
+   "section": "state",
+   "label": "NSW statutory declaration",
+   "hint": "Signed online, then certified by a JP",
+   "namePrefix": "6.4 BG NSW STAT DEC",
+   "docTypeId": "fc2640d8-382a-4ea9-9bf7-6fd881682a17",
+   "states": [
+    "NSW"
+   ],
+   "kind": "form",
+   "expiry": false,
+   "multi": false,
+   "optional": false,
+   "supersede": false,
+   "levels": null,
+   "formUrl": "https://blugibbon.jotform.com/201630680436046",
+   "stateOptionId": null,
+   "review": "Stays a Jotform for now"
+  },
+  {
+   "id": "skills",
+   "section": "state",
+   "label": "Clinical skills self-assessment",
+   "hint": "Non-specialists only",
+   "namePrefix": "3.5 BG ASSESSMENT",
+   "docTypeId": null,
+   "states": [
+    "NSW"
+   ],
+   "kind": "form",
+   "expiry": false,
+   "multi": false,
+   "optional": false,
+   "supersede": false,
+   "levels": null,
+   "formUrl": "https://blugibbon.jotform.com/201618077336051",
+   "stateOptionId": null,
+   "review": "Stays a Jotform for now",
+   "excludeLevels": [
+    "Specialist"
+   ]
+  },
+  {
+   "id": "vacrecord",
+   "section": "vacc",
+   "label": "Full vaccination record (optional shortcut)",
+   "hint": "Immunisation history or record card covering several vaccines",
+   "namePrefix": "6.3.1 BG VACS RECORD CARD",
+   "docTypeId": "ff68b12d-8853-4ad8-b682-19748dee8a24",
+   "states": [
+    "ALL"
+   ],
+   "kind": "upload",
+   "expiry": false,
+   "multi": false,
+   "optional": true,
+   "supersede": false,
+   "levels": null,
+   "formUrl": null,
+   "stateOptionId": null,
+   "review": "Reviewer splits it out; keeps the \"drop one record\" option"
+  },
+  {
+   "id": "mmr",
+   "section": "vacc",
+   "label": "MMR",
+   "hint": "Measles, mumps and rubella: 2 doses or serology",
+   "namePrefix": "6.3.1.1 BG VACS MMR",
+   "docTypeId": "82dbaa97-07a0-400c-9848-4303d0457b92",
+   "states": [
+    "ALL"
+   ],
+   "kind": "upload",
+   "expiry": false,
+   "multi": false,
+   "optional": false,
+   "supersede": false,
+   "levels": null,
+   "formUrl": null,
+   "stateOptionId": null,
+   "review": ""
+  },
+  {
+   "id": "hepb",
+   "section": "vacc",
+   "label": "Hepatitis B",
+   "hint": "Serology showing immunity (anti-HBs ≥10)",
+   "namePrefix": "6.3.1.2 BG VACS HEP B",
+   "docTypeId": "e2175c04-75d7-4931-a423-70789cadaf26",
+   "states": [
+    "ALL"
+   ],
+   "kind": "upload",
+   "expiry": false,
+   "multi": false,
+   "optional": false,
+   "supersede": false,
+   "levels": null,
+   "formUrl": null,
+   "stateOptionId": null,
+   "review": ""
+  },
+  {
+   "id": "vari",
+   "section": "vacc",
+   "label": "Varicella",
+   "hint": "Chickenpox: 2 doses or serology",
+   "namePrefix": "6.3.1.3 BG VACS VARICELLA",
+   "docTypeId": "6b1bcc13-5ce5-42c7-b3c8-c57dcb6129fb",
+   "states": [
+    "ALL"
+   ],
+   "kind": "upload",
+   "expiry": false,
+   "multi": false,
+   "optional": false,
+   "supersede": false,
+   "levels": null,
+   "formUrl": null,
+   "stateOptionId": null,
+   "review": ""
+  },
+  {
+   "id": "dtpa",
+   "section": "vacc",
+   "label": "dTpa (Boostrix)",
+   "hint": "Within the last 10 years",
+   "namePrefix": "6.3.1.4 BG VACS DTPA EXP",
+   "docTypeId": "422e325e-bc6e-4921-bdf3-0987775e2b6c",
+   "states": [
+    "ALL"
+   ],
+   "kind": "upload",
+   "expiry": true,
+   "multi": false,
+   "optional": false,
+   "supersede": true,
+   "levels": null,
+   "formUrl": null,
+   "stateOptionId": null,
+   "review": ""
+  },
+  {
+   "id": "tb",
+   "section": "vacc",
+   "label": "TB screening",
+   "hint": "BCG scar check, IGRA or Mantoux",
+   "namePrefix": "6.3.1.5 BG VACS TB",
+   "docTypeId": "5e2a1ed6-5d22-4a1a-bb24-064cec7f8091",
+   "states": [
+    "ALL"
+   ],
+   "kind": "upload",
+   "expiry": false,
+   "multi": false,
+   "optional": false,
+   "supersede": false,
+   "levels": null,
+   "formUrl": null,
+   "stateOptionId": null,
+   "review": ""
+  },
+  {
+   "id": "hepbsd",
+   "section": "vacc",
+   "label": "Hep B statutory declaration",
+   "hint": "NSW only",
+   "namePrefix": "6.3.1.6 BG NSW HEP B STAT DEC",
+   "docTypeId": "97360b02-467a-44da-98c6-f39bf517d0aa",
+   "states": [
+    "NSW"
+   ],
+   "kind": "form",
+   "expiry": false,
+   "multi": false,
+   "optional": false,
+   "supersede": false,
+   "levels": null,
+   "formUrl": "https://blugibbon.jotform.com/222971023925051",
+   "stateOptionId": null,
+   "review": ""
+  },
+  {
+   "id": "flu",
+   "section": "vacc",
+   "label": "Flu vaccine",
+   "hint": "This season (1 June to 30 October)",
+   "namePrefix": "6.3.1.7 BG VACS FLU",
+   "docTypeId": "aaaa5b7f-1c09-481a-ad2e-40f745c007d1",
+   "states": [
+    "ALL"
+   ],
+   "kind": "upload",
+   "expiry": false,
+   "multi": false,
+   "optional": false,
+   "supersede": false,
+   "levels": null,
+   "formUrl": null,
+   "stateOptionId": null,
+   "review": ""
+  },
+  {
+   "id": "covid",
+   "section": "vacc",
+   "label": "COVID-19",
+   "hint": "Recommended",
+   "namePrefix": "6.3.1.8 BG VACS COVID EXP",
+   "docTypeId": "921dc553-3d5b-4f86-9a34-c7b8dce2d4bb",
+   "states": [
+    "ALL"
+   ],
+   "kind": "upload",
+   "expiry": true,
+   "multi": false,
+   "optional": true,
+   "supersede": true,
+   "levels": null,
+   "formUrl": null,
+   "stateOptionId": null,
+   "review": "ClickUp option says \"Compulsory\", catalog says \"Recommended\" - which?"
+  },
+  {
+   "id": "hepa",
+   "section": "vacc",
+   "label": "Hepatitis A",
+   "hint": "WA only",
+   "namePrefix": "6.3.1.9 BG VACS HEP A",
+   "docTypeId": "c8768afe-bece-45b9-9c88-590d900e313e",
+   "states": [
+    "WA"
+   ],
+   "kind": "upload",
+   "expiry": false,
+   "multi": false,
+   "optional": false,
+   "supersede": false,
+   "levels": null,
+   "formUrl": null,
+   "stateOptionId": null,
+   "review": ""
+  },
+  {
+   "id": "mrsa",
+   "section": "vacc",
+   "label": "MRSA screening swabs",
+   "hint": "WA only",
+   "namePrefix": "6.3.2 MRSA Screening Swabs WA Only",
+   "docTypeId": "cb38048a-9538-43b3-ac74-ec4d2250bf44",
+   "states": [
+    "WA"
+   ],
+   "kind": "upload",
+   "expiry": false,
+   "multi": false,
+   "optional": false,
+   "supersede": false,
+   "levels": null,
+   "formUrl": null,
+   "stateOptionId": null,
+   "review": ""
+  },
+  {
+   "id": "polio",
+   "section": "vacc",
+   "label": "Polio",
+   "hint": "SA only",
+   "namePrefix": "6.3.1.10 BG VACS POLIO",
+   "docTypeId": null,
+   "states": [
+    "SA"
+   ],
+   "kind": "upload",
+   "expiry": false,
+   "multi": false,
+   "optional": false,
+   "supersede": false,
+   "levels": null,
+   "formUrl": null,
+   "stateOptionId": null,
+   "review": "No ClickUp Document Type option for Polio yet - add one?"
+  }
+ ],
+ "notInPortal": [
+  "NSW Health forms pack (8.1-8.7, 8.9x): placement-time forms, recruiter sends per placement",
+  "WACHS documents: client-specific, sent per placement",
+  "QLD Health CV (1.1 QLD) and formatted CV: prepared by Blugibbon",
+  "References: own section, handled by the Reference Request scenarios",
+  "Contracts, bank/super/TFN forms: confidential folder, stays separate"
+ ]
+}

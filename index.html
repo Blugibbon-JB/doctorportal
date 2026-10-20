@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blugibbon · My Documents</title>
+<style>
+:root{
+  --bg:#F7F8FA; --card:#FFFFFF; --line:#ECEEF1; --line2:#D9DDE3; --text:#1F2937; --muted:#6B7280; --faint:#9CA3AF; --soft:#F3F4F6;
+  --blue:#2563EB; --blue-d:#1D4ED8; --blue-soft:#EFF4FF; --green:#047857; --green-soft:#ECFDF5; --amber:#B45309; --amber-soft:#FFF7E6;
+  --purple:#6D28D9; --purple-soft:#F3F0FF; --red:#B91C1C; --red-soft:#FEF2F2;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#111827; --card:#1A2232; --line:#2A3446; --line2:#3A4558; --text:#F3F4F6; --muted:#A3AAB8; --faint:#6B7486; --soft:#243044;
+    --blue:#60A5FA; --blue-d:#93C5FD; --blue-soft:#1E2A44; --green:#34D399; --green-soft:#12322A; --amber:#FBBF24; --amber-soft:#3A2E12;
+    --purple:#A78BFA; --purple-soft:#2B2547; --red:#F87171; --red-soft:#3A1D1D; }
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+button{font:inherit;color:inherit;cursor:pointer}
+a{color:var(--blue)}
+header{background:var(--card);border-bottom:1px solid var(--line)}
+.bar{max-width:1080px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.logo{width:32px;height:32px;border-radius:8px;background:#1D4ED8;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700}
+.who{display:flex;flex-direction:column}.who span{color:var(--muted);font-size:12.5px}
+.sp{flex:1}
+.mock{font-size:11.5px;background:var(--amber-soft);color:var(--amber);border-radius:999px;padding:2px 9px}
+main{max-width:1080px;margin:0 auto;padding:22px 20px 140px;display:flex;flex-direction:column;gap:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px}
+.summary{padding:20px 22px;display:flex;flex-direction:column;gap:14px}
+.summary h1{margin:0;font-size:22px}
+.track{height:10px;border-radius:5px;background:var(--line);overflow:hidden;display:flex}
+.track i{display:block;height:10px}
+.pills{display:flex;gap:8px;flex-wrap:wrap}
+.pill{border-radius:999px;padding:3px 10px;font-size:12.5px;white-space:nowrap}
+.p-valid{background:var(--green-soft);color:var(--green)} .p-review{background:var(--purple-soft);color:var(--purple)}
+.p-expiring{background:var(--amber-soft);color:var(--amber)} .p-expired{background:var(--red-soft);color:var(--red)}
+.p-missing{background:var(--soft);color:var(--text);font-weight:600} .p-optional{background:var(--soft);color:var(--muted)}
+.p-staged{background:var(--blue-soft);color:var(--blue-d)} .p-form{background:var(--purple-soft);color:var(--purple)}
+.ready{display:flex;gap:8px;flex-wrap:wrap;align-items:center;border-top:1px solid var(--line);padding-top:12px;color:var(--muted);font-size:13px}
+.sec-h{width:100%;border:0;background:none;padding:16px 22px;display:flex;align-items:center;gap:14px;text-align:left}
+.num{width:30px;height:30px;border-radius:15px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex:none;background:var(--blue-soft);color:var(--blue-d)}
+.num.done{background:var(--green-soft);color:var(--green)}
+.sec-t{flex:1;min-width:0;display:flex;flex-direction:column}.sec-t b{font-size:16px}.sec-t span{color:var(--muted);font-size:13px}
+.mini{width:64px;height:6px;border-radius:3px;background:var(--line);overflow:hidden}.mini i{display:block;height:6px;background:var(--blue)}
+.chev{color:var(--faint);font-size:18px;width:16px;text-align:center}
+.sec-b{border-top:1px solid var(--line)}
+.prefs{padding:18px 22px;display:flex;flex-direction:column;gap:14px;border-bottom:1px solid var(--line)}
+.prefs b{font-size:13px}
+.tog{height:38px;min-width:56px;padding:0 14px;border-radius:8px;font-weight:600;background:var(--card);border:1px solid var(--line2)}
+.tog[aria-pressed="true"]{background:var(--text);color:var(--bg);border-color:var(--text)}
+.row{padding:14px 22px;border-top:1px solid var(--line);display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.row:first-child{border-top:0}
+.row.drag{background:var(--blue-soft);outline:2px dashed var(--blue);outline-offset:-6px}
+.r-main{flex:1 1 340px;min-width:0;display:flex;flex-direction:column;gap:3px}
+.r-t{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.r-t b{font-size:14.5px}
+.tag{font-size:11.5px;border-radius:999px;padding:1px 8px}
+.hint{color:var(--muted);font-size:13px}
+.saved{color:var(--faint);font-size:12px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;overflow-wrap:anywhere}
+.files{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+.file{display:inline-flex;align-items:center;gap:6px;background:var(--blue-soft);color:var(--blue-d);border-radius:6px;padding:3px 8px;font-size:12.5px}
+.file button{border:0;background:none;color:inherit;padding:0 2px;font-size:14px;line-height:1}
+.file.err{background:var(--red-soft);color:var(--red)}
+select.choice{height:32px;border-radius:6px;border:1px solid var(--line2);background:var(--card);color:var(--text);padding:0 6px;font:inherit;margin-top:4px;max-width:260px}
+.act{height:40px;min-width:128px;border-radius:8px;font-weight:600;padding:0 14px;border:1px solid var(--line2);background:var(--card)}
+.act.go{border:1.5px dashed var(--blue);background:var(--blue-soft);color:var(--blue-d)}
+.act.form{border-color:var(--purple);color:var(--purple);text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
+.note{padding:14px 22px;border-top:1px solid var(--line);color:var(--muted);font-size:13px}
+.foot{color:var(--faint);font-size:12.5px;margin:4px 2px}
+.tray{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line2);box-shadow:0 -6px 20px rgba(17,24,39,.08)}
+.tray .bar{padding:14px 20px}
+.btn{height:44px;padding:0 18px;border-radius:8px;border:1px solid var(--line2);background:var(--card)}
+.btn.primary{border:0;background:var(--blue);color:#fff;font-weight:600;padding:0 22px}
+.btn:disabled{opacity:.5;cursor:default}
+.toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#1F2937;color:#fff;border-radius:10px;padding:12px 18px;box-shadow:0 8px 24px rgba(0,0,0,.2);max-width:90vw}
+.hidden{display:none!important}
+@media (max-width:600px){.bar,main{padding-left:16px;padding-right:16px}.row,.sec-h,.prefs{padding-left:16px;padding-right:16px}.act{min-width:0;flex:1}.mini{display:none}.sec-h{gap:10px}}
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <div class="logo" aria-hidden="true">BG</div>
+    <div class="who"><b>My documents</b><span id="whoLine">Loading…</span></div>
+    <div class="sp"></div>
+    <span id="mockTag" class="mock hidden">Sample data. Nothing is sent</span>
+    <span id="recruiter" class="hint"></span>
+  </div>
+</header>
+
+<main id="app" aria-live="polite"></main>
+
+<div id="tray" class="tray hidden">
+  <div class="bar">
+    <b id="trayText"></b>
+    <span class="hint">Nothing is sent until you press Submit.</span>
+    <div class="sp"></div>
+    <button id="clearBtn" class="btn" type="button">Clear</button>
+    <button id="submitBtn" class="btn primary" type="button">Submit for review</button>
+  </div>
+</div>
+<div id="toast" class="toast hidden" role="status"></div>
+<input id="picker" type="file" class="hidden" accept=".pdf,.jpg,.jpeg,.png,.heic,.heif,.doc,.docx">
+
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-functions-compat.js"></script>
+<script src="config.js"></script>
+<script src="auth.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

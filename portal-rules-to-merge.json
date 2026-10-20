@@ -1,0 +1,10 @@
+{
+  "_note": "Merge the 'portal' block into the project's existing Realtime Database rules. Do NOT replace the calendar's rules with this file.",
+  "portal": {
+    "users": { "$uid": { ".read": "auth != null && auth.uid === $uid", ".write": false } },
+    "docs": { "$medKey": { ".read": "auth != null && root.child('portal/users/' + auth.uid + '/medKey').val() === $medKey", ".write": false } },
+    "prefs": { "$uid": { ".read": "auth != null && auth.uid === $uid", ".write": "auth != null && auth.uid === $uid" } },
+    "codes": { ".read": false, ".write": false },
+    "taskIndex": { ".read": false, ".write": false }
+  }
+}
