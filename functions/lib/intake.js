@@ -98,4 +98,24 @@ function attachments(msg) {
   })).filter((a) => KEEP_EXT.test(a.fileName) && a.size <= MAX_BYTES && !(a.mimeType.startsWith('image/') && (a.size < 30 * 1024 || (a.inline && a.size < 80 * 1024))));
 }
 
-module.exports = { guessBox, findRego, addressOf, forwardedSender, header, bodyText, attachments };
+
+// Model output -> clean groups. Every page lands in exactly one group, types are checked against the
+// real boxes, and anything unsure (confidence under 0.6, unknown type) becomes "unsorted" (TO CLASSIFY).
+function cleanGroups(raw, pages, validIds) {
+  const seen = new Set(), out = [];
+  ((raw && raw.documents) || []).forEach((d) => {
+    const pg = [...new Set((d.pages || []).map(Number))].filter((p) => Number.isInteger(p) && p >= 1 && p <= pages && !seen.has(p)).sort((a, b) => a - b);
+    if (!pg.length) return;
+    pg.forEach((p) => seen.add(p));
+    const [boxId, choice] = String(d.type || '').split(':');
+    const ok = validIds.has(boxId) && boxId !== 'unsorted' && Number(d.confidence) >= 0.6;
+    out.push({ boxId: ok ? boxId : 'unsorted', choice: ok ? choice || null : null, pages: pg });
+  });
+  const missing = [];
+  for (let p = 1; p <= pages; p++) if (!seen.has(p)) missing.push(p);
+  if (missing.length) out.push({ boxId: 'unsorted', choice: null, pages: missing });
+  return out.sort((a, b) => a.pages[0] - b.pages[0]);
+}
+const pageLabel = (pg) => 'p' + pg.reduce((acc, p, i) => (i && p === pg[i - 1] + 1 ? acc.replace(/-\d+$|$/, '-' + p) : acc + (i ? ',' : '') + p), '');
+
+module.exports = { cleanGroups, pageLabel, guessBox, findRego, addressOf, forwardedSender, header, bodyText, attachments };

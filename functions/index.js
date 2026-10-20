@@ -8,6 +8,8 @@ const { defineSecret, defineString } = require('firebase-functions/params');
 const { setGlobalOptions } = require('firebase-functions/v2');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const IN = require('./lib/intake');
+const AI = require('./lib/ai');
+let PDF = null; try { PDF = require('pdf-lib'); } catch (e) { console.warn('pdf-lib not installed: emailed bundles will not be split'); }
 const admin = require('firebase-admin');
 const CU = require('./lib/clickup');
 const G = require('./lib/google');
@@ -241,7 +243,7 @@ async function createSubmission(cu, user, doc, filesIn, inboxId, meta) {
   const submission = await cu.post('list/' + CU.COMPLIANCE_LIST + '/task', {
     name: 'Dr ' + user.name, assignees, notify_all: true,
     description: 'Submitted through ' + meta.via + ' (' + checked.length + ' file' + (checked.length > 1 ? 's' : '') + ').\n\n' + list +
-      '\n\nStates: ' + ((meta.states || []).join(', ') || '-') + ' · Level: ' + (meta.level || '-') + '\nFiles are in the doctor’s Drive folder › ' + G.INBOX_NAME + '.',
+      (meta.note ? '\n\n' + meta.note : '') + '\n\nStates: ' + ((meta.states || []).join(', ') || '-') + ' · Level: ' + (meta.level || '-') + '\nFiles are in the doctor’s Drive folder › ' + G.INBOX_NAME + '.',
     custom_fields: [{ id: CU.F.fileStage, value: CU.STAGE.formResponse }, { id: CU.F.medReg, value: user.medReg },
       { id: CU.F.submittedBy, value: meta.submittedBy }] });
 
@@ -362,27 +364,70 @@ async function intakeOne(cu, id) {
   const user = { medReg, medKey: key(medReg), doctorId: doc.id, name: doc.name.trim(), inboxId: ((await db.ref(cachePath).get()).val() || {}).inboxId };
   const inboxId = await inboxFor(cachePath, user);
 
-  const saved = [];
+  const saved = [], notes = [];
+  let aiCalls = 0, bundles = 0;
   for (const a of files) {
-    const g = IN.guessBox(a.fileName, VALID_BOX);
-    const box = REQ.boxes.find((b) => b.id === g.boxId);
     const att = await G.gmail('GET', 'messages/' + id + '/attachments/' + a.attachmentId);
-    const safe = a.fileName.replace(/[\\/:*?"<>|]/g, '_').slice(0, 120);
-    const f = await G.uploadBuffer({ folderId: inboxId, name: boxPrefix(box, g.choice).prefix + ' ' + upperName(user.name) + ' - ' + safe,
-      mimeType: a.mimeType, data: Buffer.from(att.data, 'base64url') });
-    saved.push({ boxId: g.boxId, choice: g.choice, fileId: f.id, fileName: a.fileName });
+    const data = Buffer.from(att.data, 'base64url');
+    const parts = await sortAttachment(a, data, aiCalls++ < 15);
+    if (parts.length > 1) { // a bundle: keep the original too, linked on the submission task
+      bundles++;
+      const orig = await G.uploadBuffer({ folderId: inboxId, name: 'EMAILED BUNDLE ' + upperName(user.name) + ' - ' + safeName(a.fileName), mimeType: a.mimeType, data });
+      notes.push('Split "' + a.fileName + '" into ' + parts.length + ' documents (' + parts.map((p) => p.pageLabel).join(', ') + '). Original: ' + orig.webViewLink);
+    }
+    for (const p of parts) {
+      const box = REQ.boxes.find((b) => b.id === p.boxId);
+      const f = await G.uploadBuffer({ folderId: inboxId, name: boxPrefix(box, p.choice).prefix + ' ' + upperName(user.name) + ' - ' + safeName(p.fileName),
+        mimeType: p.mimeType, data: p.data });
+      saved.push({ boxId: p.boxId, choice: p.choice, fileId: f.id, fileName: p.fileName, label: p.boxId === 'unsorted' ? 'to be identified by our team' : boxLabel(box, p.choice) });
+    }
   }
   await createSubmission(cu, user, doc, saved, inboxId, { via: 'email from ' + from + (subject ? ' ("' + subject.slice(0, 80) + '")' : ''),
-    submittedBy: staff ? CU.SUBMITTED_BY_RECRUITER : CU.SUBMITTED_BY_DOCTOR, states: [], level: '' });
+    submittedBy: staff ? CU.SUBMITTED_BY_RECRUITER : CU.SUBMITTED_BY_DOCTOR, states: [], level: '', note: notes.join('\n') });
   if (!staff) {
     await G.sendMail(from, /^re:/i.test(subject) ? subject : 'Re: ' + (subject || 'Your documents'),
       // Only name the doctor if this is their own address (an AHPRA number in the subject can come from anyone).
       (String(CU.field(doc, CU.F.email) || '').trim().toLowerCase() === from ? 'Hi Dr ' + user.name + ',' : 'Hi,') + '\n\nThanks, we’ve received ' + saved.length + ' document' + (saved.length > 1 ? 's' : '') + ':\n\n' +
-      saved.map((x) => '• ' + x.fileName).join('\n') + '\n\nOur team will check them and let you know if anything else is needed. ' +
+      saved.map((x) => '• ' + x.label + ' (' + x.fileName + ')').join('\n') + '\n\nOur team will check them and let you know if anything else is needed. ' +
+      (bundles ? 'Next time, uploading each document separately in the portal is quicker for everyone. ' : '') +
       'You can also see where your documents are up to, and upload new ones, at https://blugibbon-jb.github.io/doctorportal/\n\nBlugibbon Medical Recruitment',
       { messageId: IN.header(msg, 'Message-ID'), threadId: msg.threadId }).catch((e) => console.error('intake reply', e.message));
   }
   return { ok: true, doctor: user.name, files: saved.map((x) => x.boxId) };
+}
+
+const safeName = (n) => String(n || 'file').replace(/[\\/:*?"<>|]/g, '_').slice(0, 120);
+const boxLabel = (box, choice) => (box.kind === 'choice' ? ((box.options.find((o) => o.id === choice) || {}).label || box.label) : box.label);
+
+// One emailed attachment -> one or more parts. A clear file name wins (no AI). Otherwise Gemini says what
+// it is, and for a multi-page PDF which pages belong to which document; the PDF is then cut into parts.
+// Anything unsure, or any failure, falls back to a single "TO CLASSIFY" file for the reviewer.
+async function sortAttachment(a, data, allowAi) {
+  const whole = (boxId, choice) => [{ boxId, choice: choice || null, data, mimeType: a.mimeType, fileName: a.fileName, pageLabel: 'all' }];
+  const g = IN.guessBox(a.fileName, VALID_BOX);
+  if (g.boxId !== 'unsorted' || !allowAi) return whole(g.boxId, g.choice);
+  const isPdf = /pdf/i.test(a.mimeType) || /\.pdf$/i.test(a.fileName);
+  const mime = isPdf ? 'application/pdf' : a.mimeType;
+  if (!AI.AI_MIME.test(mime)) return whole('unsorted');
+  let pdf = null, pages = 1;
+  if (isPdf) {
+    if (!PDF) return whole('unsorted');
+    try { pdf = await PDF.PDFDocument.load(data, { ignoreEncryption: true }); pages = pdf.getPageCount(); } catch (e) { return whole('unsorted'); }
+    if (pages > 40) return whole('unsorted');
+  }
+  let groups;
+  try { groups = IN.cleanGroups(await AI.sortFile({ data, mimeType: mime, pages, req: REQ }), pages, VALID_BOX); }
+  catch (e) { console.error('ai sort', a.fileName, e.message); return whole('unsorted'); }
+  if (groups.length === 1) return whole(groups[0].boxId, groups[0].choice);
+  const base = a.fileName.replace(/\.pdf$/i, '');
+  const out = [];
+  for (const gr of groups) {
+    const part = await PDF.PDFDocument.create();
+    (await part.copyPages(pdf, gr.pages.map((p) => p - 1))).forEach((p) => part.addPage(p));
+    const label = IN.pageLabel(gr.pages);
+    out.push({ boxId: gr.boxId, choice: gr.choice, data: Buffer.from(await part.save()), mimeType: 'application/pdf', fileName: base + ' ' + label + '.pdf', pageLabel: label });
+  }
+  return out;
 }
 
 // "TO CLASSIFY JOSH TEST (scan0001)" + Document Type (and State for WWCC) set by the reviewer
