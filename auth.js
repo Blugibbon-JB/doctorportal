@@ -97,7 +97,26 @@
       status[b.id] = { st, exp: hit.due ? ddmmyy(hit.due) : '' };
       if (b.kind === 'choice') { const o = b.options.find((x) => x.docTypeId === hit.docType); if (o) choice[b.id] = o.id; }
     });
-    return { status, choice };
+    return { status, choice, refs: buildRefs(docs) };
+  }
+
+  // Reference tasks made by Scenario 4 ("1.2.N Professional Ref - Name DD.MM.YY" or the NSW combined
+  // "2.4 NSW … 1.2.N - Name DD.MM.YY"), grouped into one entry per referee slot.
+  function buildRefs(docs) {
+    const S = window.PORTAL_REQ.clickup.fileStageOptions;
+    const bySlot = {};
+    Object.values(docs || {}).forEach((d) => {
+      const m = /(?:^|\s)1\.2\.([1-3])\s/.exec(d.name || '');
+      if (!m || d.fileStage === S.archived) return;
+      const slot = Number(m[1]);
+      const e = bySlot[slot] || (bySlot[slot] = { slot, name: '', parts: {}, created: d.created });
+      const after = String(d.name).split(' - ')[1];
+      if (after && !e.name) e.name = after.replace(/\s+\d{2}\.\d{2}\.\d{2}.*$/, '').trim();
+      const type = /clinical/i.test(d.name) ? 'clinical' : 'professional';
+      const st = d.fileStage === S.filed ? 'done' : /missing/i.test(d.status) ? 'waiting' : 'received';
+      e.parts[type] = st;
+    });
+    return Object.values(bySlot).sort((a, b) => a.slot - b.slot);
   }
 
   // ---------- public ----------
@@ -113,11 +132,15 @@
           if (!user) user = await new Promise((r) => linkScreen(r));
           const profile = { name: user.name, medReg: user.medReg, recruiter: user.recruiter,
             states: JSON.parse(localStorageSafe('get', 'portalStates') || '["NSW"]'), level: localStorageSafe('get', 'portalLevel') || 'Registrar' };
-          let first = true;
-          db.ref('portal/docs/' + user.medKey).on('value', (snap) => {
-            const s = toStatus(req, snap.val());
+          window.PORTAL_REQ = req;
+          let first = true, docs = null, sent = null, gotDocs = false;
+          const emit = () => {
+            if (!gotDocs) return;
+            const s = Object.assign(toStatus(req, docs), { sent: Object.values(sent || {}) });
             if (first) { first = false; resolve(Object.assign({ profile }, s)); } else onChange(s);
-          });
+          };
+          db.ref('portal/docs/' + user.medKey).on('value', (snap) => { docs = snap.val(); gotDocs = true; emit(); });
+          db.ref('portal/users/' + u.uid + '/refs').on('value', (snap) => { sent = snap.val(); emit(); });
           call('refreshMyStatus').catch(() => {});
         });
       });

@@ -27,7 +27,10 @@ const STAGE = {
 };
 const SUBMITTED_BY_DOCTOR = '30344cba-83f1-4171-a33b-edfe5bde0872';
 
-function client(token) {
+function client(rawToken) {
+  // Trim stray spaces/newlines from pasting; OAuth-style tokens need 'Bearer'.
+  const t = String(rawToken || '').trim();
+  const token = /^pk_/.test(t) ? t : 'Bearer ' + t;
   async function call(method, path, body) {
     const res = await fetch('https://api.clickup.com/api/v2/' + path, {
       method, headers: { Authorization: token, 'Content-Type': 'application/json' },

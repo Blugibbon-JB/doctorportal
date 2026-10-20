@@ -22,7 +22,7 @@
   {
    "id": "refs",
    "title": "References",
-   "sub": "Add referees and we request them for you"
+   "sub": "Add your referees and we request the references for you"
   }
  ],
  "states": [
@@ -794,5 +794,18 @@
   "QLD Health CV (1.1 QLD) and formatted CV: prepared by Blugibbon",
   "References: own section, handled by the Reference Request scenarios",
   "Contracts, bank/super/TFN forms: confidential folder, stays separate"
- ]
+ ],
+ "references": {
+  "required": 2,
+  "max": 3,
+  "templates": [
+   {
+    "type": "professional"
+   },
+   {
+    "type": "clinical"
+   }
+  ],
+  "note": "templates are sent to Make Scenario 4 for every referee: professional + clinical = two separate NSW forms. Use [{\"type\":\"combined\"}] for the single NSW combined form once its Jotform webhooks are set up."
+ }
 }

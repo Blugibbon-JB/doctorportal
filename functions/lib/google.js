@@ -20,7 +20,7 @@ async function drive(method, url, body, headers) {
   return res;
 }
 const q = (s) => encodeURIComponent(s);
-const all = 'supportsAllDrives=true&includeItemsFromAllDrives=true&corpora=drive&driveId=' + SHARED_DRIVE;
+const all = 'supportsAllDrives=true&includeItemsFromAllDrives=true&corpora=allDrives'; // doctor folders live in more than one Shared Drive
 
 function folderIdFromLink(link) {
   const m = String(link || '').match(/folders\/([A-Za-z0-9_-]+)/);

@@ -16,10 +16,14 @@
       pp: { st: 'expired', exp: '02.10.26' }, ncrc: { st: 'valid', exp: '16.04.27' }, wwcc_qld: { st: 'valid', exp: '22.03.28' },
       nswstat: { st: 'review' }, mmr: { st: 'valid' }, hepb: { st: 'valid' }, vari: { st: 'valid' },
       dtpa: { st: 'valid', exp: '29.07.27' }, flu: { st: 'expiring', exp: '30.10.26' }
-    }
+    },
+    refs: [{ slot: 1, name: 'Stephen Sun', parts: { professional: 'done', clinical: 'received' } }],
+    sent: [{ name: 'Stephen Sun', position: 'Director of Emergency', workplace: 'Westmead Hospital', requestedAt: Date.now() - 6 * 86400000 }]
   };
 
-  const S = { req: null, profile: null, status: {}, staged: {}, choice: {}, open: 'base', busy: false, live: CFG.mode === 'live' };
+  const S = { req: null, profile: null, status: {}, staged: {}, choice: {}, open: 'base', busy: false, live: CFG.mode === 'live',
+    refs: [], sent: [], refDraft: [blankRef()], refConsent: false, refBusy: false, refMsg: '' };
+  function blankRef() { return { name: '', email: '', position: '', workplace: '', phone: '' }; }
   let pickTarget = null;
 
   // ---------- rules ----------
@@ -94,21 +98,22 @@
       const rows = boxes.filter((b) => b.section === sec.id);
       const rq = rows.filter((b) => !isOptional(b));
       const dn = rq.filter(done).length;
-      const pct = sec.id === 'refs' ? 0 : (rq.length ? Math.round(dn / rq.length * 100) : 100);
-      const complete = sec.id !== 'refs' && pct === 100;
+      const rc = refCounts();
+      const pct = sec.id === 'refs' ? Math.min(100, Math.round(rc.got / rc.need * 100)) : (rq.length ? Math.round(dn / rq.length * 100) : 100);
+      const complete = pct === 100;
       const open = S.open === sec.id;
       const sub = sec.id === 'state' ? (S.profile.states.join(', ') || 'No states picked') + ' · ' + S.profile.level : sec.sub;
       html += '<section class="card">' +
         '<button class="sec-h" type="button" data-sec="' + sec.id + '" aria-expanded="' + open + '">' +
         '<span class="num' + (complete ? ' done' : '') + '">' + (complete ? '✓' : i + 1) + '</span>' +
         '<span class="sec-t"><b>' + esc(sec.title) + '</b><span>' + esc(sub) + '</span></span>' +
-        '<span class="hint" style="white-space:nowrap">' + (sec.id === 'refs' ? 'Coming next' : dn + ' of ' + rq.length) + '</span>' +
+        '<span class="hint" style="white-space:nowrap">' + (sec.id === 'refs' ? rc.got + ' of ' + rc.need + ' received' : dn + ' of ' + rq.length) + '</span>' +
         '<span class="mini"><i style="width:' + pct + '%;' + (complete ? 'background:var(--green)' : '') + '"></i></span>' +
         '<span class="chev" aria-hidden="true">' + (open ? '–' : '+') + '</span></button>';
       if (open) {
         html += '<div class="sec-b">';
         if (sec.id === 'state') html += prefsHtml();
-        if (sec.id === 'refs') html += '<div class="note">Referee details and the permission to contact them go here. This connects to your existing reference request automation in the next step of the build.</div>';
+        if (sec.id === 'refs') html += refsHtml();
         html += rows.map(rowHtml).join('');
         if (sec.id === 'state' && !rows.length) html += '<div class="note">Pick at least one state above to see its documents.</div>';
         if (sec.id === 'vacc') html += '<div class="note">Got everything on one immunisation history? Use the "Full vaccination record" box and your reviewer will split it out.</div>';
@@ -124,6 +129,66 @@
     $('trayText').textContent = staged.length + (staged.length === 1 ? ' file ready' : ' files ready');
     $('submitBtn').disabled = S.busy;
     $('submitBtn').textContent = S.busy ? 'Sending…' : 'Submit for review';
+  }
+
+  // ---------- references ----------
+  const refCfg = () => Object.assign({ required: 2, max: 3 }, S.req.references || {});
+  const refPartsDone = (r) => Object.values(r.parts).length && Object.values(r.parts).every((p) => p !== 'waiting');
+  function refCounts() { return { got: S.refs.filter(refPartsDone).length, need: refCfg().required }; }
+  function refsOnFile() {
+    // ClickUp reference tasks, with the details the doctor typed matched on by name.
+    const lc = (x) => String(x || '').trim().toLowerCase();
+    const list = S.refs.map((r) => Object.assign({}, r, { info: S.sent.find((x) => lc(x.name) === lc(r.name)) || null }));
+    S.sent.forEach((x) => {
+      if (!list.some((r) => lc(r.name) === lc(x.name)) && Date.now() - x.requestedAt < 30 * 60 * 1000)
+        list.push({ slot: 9, name: x.name, parts: {}, info: x, sending: true });
+    });
+    return list;
+  }
+  function refsHtml() {
+    const cfg = refCfg(), onFile = refsOnFile(), left = Math.max(0, cfg.max - onFile.length);
+    const label = { waiting: ['Waiting on referee', 'p-optional'], received: ['Received · in review', 'p-review'], done: ['Verified', 'p-valid'] };
+    let h = onFile.map((r) => {
+      const pills = r.sending ? '<span class="pill p-optional">Sending request…</span>' : Object.keys(r.parts).sort().map((t) =>
+        '<span class="pill ' + label[r.parts[t]][1] + '">' + (t === 'clinical' ? 'Clinical' : 'Professional') + ': ' + label[r.parts[t]][0] + '</span>').join('');
+      const sub = r.info ? esc([r.info.position, r.info.workplace].filter(Boolean).join(', ')) : 'Referee ' + r.slot;
+      return '<div class="row"><div class="r-main"><div class="r-t"><b>' + esc(r.name || 'Referee') + '</b></div><span class="hint">' + sub + '</span></div>' +
+        '<div class="refpills">' + pills + '</div></div>';
+    }).join('');
+    if (!onFile.length) h += '<div class="note">We need references from <b>' + cfg.required + '</b> senior colleagues who have supervised your work, ideally in the last 12 months. Add them below and we’ll email each one a short form.</div>';
+    if (!left) return h + '<div class="note">You have ' + cfg.max + ' referees on file. If you need to change one, contact ' + esc(S.profile.recruiter) + '.</div>';
+
+    S.refDraft = S.refDraft.slice(0, left);
+    const f = (i, k, lbl, type, ph) => '<label>' + lbl + '<input data-rf="' + i + ':' + k + '" type="' + type + '" value="' + esc(S.refDraft[i][k]) + '" placeholder="' + ph + '" autocomplete="off"' + (S.refBusy ? ' disabled' : '') + '></label>';
+    h += '<div class="refform">';
+    S.refDraft.forEach((r, i) => {
+      h += '<div class="rf">' + (S.refDraft.length > 1 ? '<button class="x" type="button" aria-label="Remove referee" data-refrm="' + i + '">×</button>' : '') +
+        f(i, 'name', 'Referee name', 'text', 'e.g. Stephen Sun') + f(i, 'email', 'Email', 'email', 'name@hospital.org.au') +
+        f(i, 'position', 'Their position', 'text', 'e.g. Director of Emergency') + f(i, 'workplace', 'Hospital or practice', 'text', 'Where you worked together') +
+        f(i, 'phone', 'Phone (optional)', 'tel', 'Best number for them') + '</div>';
+    });
+    if (S.refDraft.length < left) h += '<button class="btn" type="button" data-refadd="1">+ Add another referee</button>';
+    h += '<label class="consent"><input type="checkbox" data-refconsent="1"' + (S.refConsent ? ' checked' : '') + '> <span>I give Blugibbon permission to contact these referees about my work, and I’ve let them know to expect an email from hello@blugibbon.com.au.</span></label>' +
+      '<button class="btn primary" type="button" data-refsend="1"' + (S.refBusy ? ' disabled' : '') + '>' + (S.refBusy ? 'Sending…' : 'Send reference requests') + '</button>' +
+      '<span class="hint">Each referee gets a professional and a clinical reference form. ' + esc(S.profile.recruiter) + ' is told when you send them.</span>' +
+      (S.refMsg ? '<p class="hint" role="status" style="color:var(--red,#B91C1C)">' + esc(S.refMsg) + '</p>' : '') + '</div>';
+    return h;
+  }
+  async function sendRefs() {
+    const rows = S.refDraft.map((r) => Object.fromEntries(Object.entries(r).map(([k, v]) => [k, String(v).trim()]))).filter((r) => r.name || r.email);
+    const bad = !rows.length ? 'Please add at least one referee.'
+      : rows.map((r) => !r.name ? 'Each referee needs a name.' : !/^\S+@\S+\.\S+$/.test(r.email) ? 'Please check the email for ' + r.name + '.'
+        : (!r.position || !r.workplace) ? 'Please add the position and hospital or practice for ' + r.name + '.' : '').find(Boolean)
+      || (!S.refConsent ? 'Please tick the box to give us permission to contact your referees.' : '');
+    if (bad) { S.refMsg = bad; render(); return; }
+    S.refBusy = true; S.refMsg = ''; render();
+    try {
+      if (S.live) await window.PortalAuth.call('requestReferences', { referees: rows, consent: true });
+      else { await new Promise((r) => setTimeout(r, 600)); rows.forEach((r) => S.sent.push(Object.assign({ requestedAt: Date.now() }, r))); }
+      S.refDraft = [blankRef()]; S.refConsent = false;
+      toast('Reference request' + (rows.length > 1 ? 's' : '') + ' sent. We’ll let you know when they come back.');
+    } catch (e) { S.refMsg = e.message.replace(/^.*?:\s*/, ''); }
+    S.refBusy = false; render();
   }
 
   function prefsHtml() {
@@ -264,13 +329,22 @@
     else if (el.dataset.up) {
       const b = S.req.boxes.find((x) => x.id === el.dataset.up);
       pickTarget = b.id; $('picker').multiple = !!b.multi; $('picker').value = ''; $('picker').click();
-    } else if (el.dataset.rm) {
+    } else if (el.dataset.refadd) { S.refDraft.push(blankRef()); render(); }
+    else if (el.dataset.refrm) { S.refDraft.splice(+el.dataset.refrm, 1); render(); }
+    else if (el.dataset.refsend) { sendRefs(); }
+    else if (el.dataset.rm) {
       const [id, i] = el.dataset.rm.split(':'); S.staged[id].splice(+i, 1);
       if (!S.staged[id].length) delete S.staged[id]; render();
     }
   });
   document.addEventListener('change', (e) => {
     if (e.target.dataset && e.target.dataset.choice) { S.choice[e.target.dataset.choice] = e.target.value; render(); }
+    if (e.target.dataset && e.target.dataset.refconsent) S.refConsent = e.target.checked;
+  });
+  // Typed referee details live in S.refDraft so a re-render (e.g. a ClickUp update) doesn't wipe them.
+  document.addEventListener('input', (e) => {
+    const k = e.target.dataset && e.target.dataset.rf; if (!k) return;
+    const [i, f] = k.split(':'); if (S.refDraft[+i]) S.refDraft[+i][f] = e.target.value;
   });
   $('picker').addEventListener('change', (e) => { if (pickTarget && e.target.files.length) addFiles(pickTarget, e.target.files); });
   ['dragenter', 'dragover'].forEach((t) => document.addEventListener(t, (e) => {
@@ -296,12 +370,13 @@
   async function start() {
     S.req = await (await fetch('requirements.json', { cache: 'no-cache' })).json();
     if (S.live) {
-      const data = await window.PortalAuth.load(S.req, (s) => { S.status = s.status; Object.assign(S.choice, s.choice); render(); });
-      S.profile = data.profile; S.status = data.status || {}; Object.assign(S.choice, data.choice);
+      const data = await window.PortalAuth.load(S.req, (s) => { S.status = s.status; Object.assign(S.choice, s.choice); S.refs = s.refs || []; S.sent = s.sent || []; render(); });
+      S.profile = data.profile; S.status = data.status || {}; Object.assign(S.choice, data.choice); S.refs = data.refs || []; S.sent = data.sent || [];
       $('recruiter').insertAdjacentHTML('afterend', ' <a href="#" id="outLink" style="font-size:13px">Sign out</a>');
       $('outLink').onclick = (e) => { e.preventDefault(); window.PortalAuth.signOut(); };
     } else {
       S.profile = JSON.parse(JSON.stringify(SAMPLE.profile)); S.status = JSON.parse(JSON.stringify(SAMPLE.status));
+      S.refs = JSON.parse(JSON.stringify(SAMPLE.refs)); S.sent = JSON.parse(JSON.stringify(SAMPLE.sent));
       $('mockTag').classList.remove('hidden');
     }
     $('whoLine').textContent = 'Dr ' + S.profile.name + ' · ' + S.profile.medReg;

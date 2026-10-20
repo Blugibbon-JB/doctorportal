@@ -66,6 +66,15 @@ select.choice{height:32px;border-radius:6px;border:1px solid var(--line2);backgr
 .act.go{border:1.5px dashed var(--blue);background:var(--blue-soft);color:var(--blue-d)}
 .act.form{border-color:var(--purple);color:var(--purple);text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
 .note{padding:14px 22px;border-top:1px solid var(--line);color:var(--muted);font-size:13px}
+.refform{padding:14px 22px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:12px}
+.rf{display:grid;grid-template-columns:1fr 1fr;gap:10px;border:1px solid var(--line);border-radius:10px;padding:14px 12px 12px;position:relative}
+.rf label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted)}
+.rf input{height:42px;border-radius:8px;border:1px solid var(--line2);padding:0 10px;font:inherit;font-size:16px;background:var(--card);color:var(--text);width:100%}
+.rf .x{position:absolute;top:2px;right:6px;border:none;background:none;color:var(--muted);font-size:20px;padding:4px}
+.consent{display:flex;gap:10px;align-items:flex-start;font-size:14px;line-height:1.45}
+.consent input{width:18px;height:18px;margin-top:2px;flex:none}
+.refpills{display:flex;gap:6px;flex-wrap:wrap}
+@media (max-width:600px){.rf{grid-template-columns:1fr}.refform{padding-left:16px;padding-right:16px}}
 .foot{color:var(--faint);font-size:12.5px;margin:4px 2px}
 .tray{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line2);box-shadow:0 -6px 20px rgba(17,24,39,.08)}
 .tray .bar{padding:14px 20px}

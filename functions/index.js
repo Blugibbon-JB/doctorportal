@@ -16,7 +16,8 @@ setGlobalOptions({ region: 'australia-southeast1', maxInstances: 5 });
 const db = admin.database();
 const CLICKUP_TOKEN = defineSecret('CLICKUP_TOKEN');
 const CLICKUP_WEBHOOK_SECRET = defineSecret('CLICKUP_WEBHOOK_SECRET');
-const PORTAL_ORIGIN = defineString('PORTAL_ORIGIN', { default: 'https://blugibbon.github.io' });
+const REF_REQUEST_WEBHOOK = defineSecret('REF_REQUEST_WEBHOOK'); // Make Scenario 4 webhook address
+const PORTAL_ORIGIN = defineString('PORTAL_ORIGIN', { default: 'https://blugibbon-jb.github.io' });
 const opts = { secrets: [CLICKUP_TOKEN], cors: true };
 
 const MAX_BYTES = 50 * 1024 * 1024;
@@ -41,8 +42,8 @@ function boxPrefix(box, choice) {
 // ---------- 1. Link a sign-in to a doctor (6-digit code to the ClickUp email) ----------
 exports.linkStart = onCall(opts, async (req) => {
   const uid = needAuth(req);
-  const medReg = String((req.data && req.data.medReg) || '').trim().toUpperCase();
-  if (!/^[A-Z]{0,4}\d{6,12}$/.test(medReg)) fail('invalid-argument', 'That doesn’t look like an AHPRA registration number.');
+  const medReg = String((req.data && req.data.medReg) || '').replace(/\s+/g, '').toUpperCase();
+  if (!/^[A-Z0-9]{3,16}$/.test(medReg)) fail('invalid-argument', 'That doesn’t look like an AHPRA registration number.');
   const prev = (await db.ref('portal/codes/' + uid).get()).val();
   if (prev && Date.now() - prev.sentAt < 60 * 1000) fail('resource-exhausted', 'Please wait a minute before asking for another code.');
 
@@ -113,6 +114,95 @@ async function inboxFor(uid, user) {
   return inbox.id;
 }
 
+// The "Dr <name>" parent in the Compliance Documents list; created if this doctor has none yet.
+async function ensureParent(cu, user, doc) {
+  let parent = await cu.findParent(user.medReg);
+  if (!parent) {
+    parent = await cu.post('list/' + CU.COMPLIANCE_LIST + '/task', { name: 'Dr ' + user.name, notify_all: false, custom_fields: [
+      { id: CU.F.fileStage, value: CU.STAGE.doctorRecord }, { id: CU.F.medReg, value: user.medReg },
+      { id: CU.F.gdrive, value: CU.field(doc, CU.F.gdrive) || '' }] });
+    await cu.setField(parent.id, CU.F.relatedDoctor, { add: [doc.id] }).catch(() => {});
+  }
+  return parent;
+}
+
+// ---------- 3b. References: the doctor adds referees, Scenario 4 emails them ----------
+// The email wording is fixed here (not sent from the browser), so the portal can't be
+// used to send arbitrary messages from hello@. {referee} {doctor} {links} are filled by Make.
+const REF_MESSAGE = 'Hello {referee},\n\n' +
+  'Blugibbon is a medical recruitment company that places locum doctors across Australia.\n\n' +
+  'Dr {doctor} has named you as a referee and given us permission to contact you. We understand your time is valuable and very much appreciate your help.\n\n' +
+  'Could you please complete the reference request(s) by clicking the link(s) below:\n\n{links}\n\n' +
+  'If you would prefer to give the reference over the phone, please call us on 02 8960 6445.\n\n' +
+  'Warm regards,\nBlugibbon\n\n' +
+  'P.S. If you are a doctor interested in locum work, or you are looking to fill locum shifts of your own, we would love to hear from you: visit blugibbon.com.au or call us on 02 8960 6445.';
+const REF_CFG = Object.assign({ required: 2, max: 3, templates: [{ type: 'professional' }, { type: 'clinical' }] }, REQ.references || {});
+const refSlot = (name) => { const m = /(?:^|\s)1\.2\.([1-3])\s/.exec(String(name || '')); return m ? Number(m[1]) : null; };
+const cleanText = (v, n) => String(v || '').replace(/[<>\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n);
+
+exports.requestReferences = onCall({ secrets: [CLICKUP_TOKEN, REF_REQUEST_WEBHOOK], cors: true, timeoutSeconds: 120 }, async (req) => {
+  const uid = needAuth(req);
+  const user = await linkedUser(uid);
+  const d = req.data || {};
+  if (d.consent !== true) fail('failed-precondition', 'Please tick the box to give us permission to contact your referees.');
+  const last = user.refsLastAt || 0;
+  if (Date.now() - last < 2 * 60 * 1000) fail('resource-exhausted', 'Your last request is still being sent. Please wait a couple of minutes.');
+
+  const rows = (Array.isArray(d.referees) ? d.referees : []).slice(0, REF_CFG.max);
+  if (!rows.length) fail('invalid-argument', 'Please add at least one referee.');
+  const referees = rows.map((r) => ({
+    name: cleanText(r.name, 80), email: String(r.email || '').trim().toLowerCase().slice(0, 120),
+    position: cleanText(r.position, 100), workplace: cleanText(r.workplace, 120), phone: cleanText(r.phone, 30)
+  }));
+  for (const r of referees) {
+    if (!/^[\p{L}][\p{L} .'\-]{1,79}$/u.test(r.name)) fail('invalid-argument', 'Please check the referee name "' + r.name + '" (letters only).');
+    if (!/^[^@\s<>"]+@[^@\s<>"]+\.[a-z]{2,}$/i.test(r.email)) fail('invalid-argument', 'Please check the email for ' + r.name + '.');
+    if (!r.position || !r.workplace) fail('invalid-argument', 'Please add the position and hospital or practice for ' + r.name + '.');
+  }
+  if (new Set(referees.map((r) => r.email)).size !== referees.length) fail('invalid-argument', 'Each referee needs a different email address.');
+
+  const cu = CU.client(CLICKUP_TOKEN.value());
+  const doc = await cu.get('task/' + user.doctorId);
+  const ownEmail = String(CU.field(doc, CU.F.email) || '').trim().toLowerCase();
+  if (ownEmail && referees.some((r) => r.email === ownEmail)) fail('invalid-argument', 'A referee can’t use your own email address.');
+
+  // Scenario 4 has three referee slots (1.2.1-1.2.3). Don't let the doctor overrun them or repeat someone.
+  const existing = (await cu.listDocs(user.medReg)).filter((t) => refSlot(t.name) && CU.dropdownId(t, CU.F.fileStage) !== CU.STAGE.archived);
+  const used = new Set(existing.map((t) => refSlot(t.name)));
+  if (used.size + referees.length > REF_CFG.max) {
+    fail('failed-precondition', used.size >= REF_CFG.max ? 'You already have ' + REF_CFG.max + ' referees on file. Please ask your recruiter if you need to change one.'
+      : 'You can add ' + (REF_CFG.max - used.size) + ' more referee' + (REF_CFG.max - used.size === 1 ? '' : 's') + '.');
+  }
+  const prevEmails = Object.values(user.refs || {}).map((r) => r.email);
+  const repeat = referees.find((r) => prevEmails.includes(r.email));
+  if (repeat) fail('already-exists', repeat.name + ' has already been asked. We’ll chase them for you.');
+
+  await db.ref('portal/users/' + uid + '/refsLastAt').set(Date.now());
+  await ensureParent(cu, user, doc); // Scenario 4 hangs the reference tasks off this record
+
+  const res = await fetch(REF_REQUEST_WEBHOOK.value().trim(), {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ secret: 'gibbon', rego: user.medReg, doctorName: '', taskId: '', message: REF_MESSAGE,
+      referees: referees.map((r) => ({ name: r.name, email: r.email, templates: REF_CFG.templates })) })
+  });
+  if (!res.ok) {
+    await db.ref('portal/users/' + uid + '/refsLastAt').remove();
+    fail('unavailable', 'We couldn’t send the requests just now. Please try again in a few minutes.');
+  }
+
+  const at = Date.now();
+  const updates = {};
+  referees.forEach((r) => { updates[db.ref().push().key] = { name: r.name, email: r.email, position: r.position, workplace: r.workplace, phone: r.phone, requestedAt: at }; });
+  await db.ref('portal/users/' + uid + '/refs').update(updates);
+
+  const when = new Date(at).toLocaleString('en-AU', { timeZone: 'Australia/Sydney' });
+  const lines = referees.map((r) => '• ' + r.name + ' (' + r.position + ', ' + r.workplace + ') ' + r.email + (r.phone ? ' · ' + r.phone : '')).join('\n');
+  await cu.post('task/' + doc.id + '/comment', { notify_all: true, comment_text:
+    'Reference requests sent from the doctor portal (' + when + ').\nThe doctor ticked permission for us to contact these referees:\n' + lines +
+    '\n\nReference tasks are under Dr ' + user.name + ' in Compliance Documents.' }).catch((e) => console.error('ref comment', e.message));
+  return { count: referees.length };
+});
+
 // ---------- 3. Submit: one ClickUp task per document, same shape as the Splitter ----------
 exports.submit = onCall({ ...opts, timeoutSeconds: 300 }, async (req) => {
   const uid = needAuth(req);
@@ -133,13 +223,7 @@ exports.submit = onCall({ ...opts, timeoutSeconds: 300 }, async (req) => {
     checked.push({ box, choice: f.choice, g, original: f.fileName || g.name });
   }
 
-  let parent = await cu.findParent(user.medReg);
-  if (!parent) {
-    parent = await cu.post('list/' + CU.COMPLIANCE_LIST + '/task', { name: 'Dr ' + user.name, notify_all: false, custom_fields: [
-      { id: CU.F.fileStage, value: CU.STAGE.doctorRecord }, { id: CU.F.medReg, value: user.medReg },
-      { id: CU.F.gdrive, value: CU.field(doc, CU.F.gdrive) || '' }] });
-    await cu.setField(parent.id, CU.F.relatedDoctor, { add: [doc.id] }).catch(() => {});
-  }
+  const parent = await ensureParent(cu, user, doc);
 
   const assignees = (doc.assignees || []).map((a) => a.id);
   const list = checked.map((c) => '• ' + boxPrefix(c.box, c.choice).prefix + ': ' + c.original).join('\n');
