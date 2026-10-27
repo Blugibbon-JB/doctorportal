@@ -297,7 +297,7 @@
       const ids = [...new Set(items.map((x) => x.id))];
       ids.forEach((id) => { S.status[id] = { st: 'review' }; delete S.staged[id]; });
       if (S.live) window.PortalAuth.savePrefs(S.profile);
-      toast(items.length + (items.length === 1 ? ' file' : ' files') + ' sent to ' + S.profile.recruiter + ' for review. We’ll email you once approved.');
+      toast(items.length + (items.length === 1 ? ' file' : ' files') + ' sent to ' + S.profile.recruiter + ' for review. We’ll email you once they’ve all been checked.');
     } catch (e) {
       toast('Something went wrong sending your files. Nothing was lost. Please try again. (' + e.message + ')');
     }
