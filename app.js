@@ -297,7 +297,7 @@
       const ids = [...new Set(items.map((x) => x.id))];
       ids.forEach((id) => { S.status[id] = { st: 'review' }; delete S.staged[id]; });
       if (S.live) window.PortalAuth.savePrefs(S.profile);
-      toast(items.length + (items.length === 1 ? ' file' : ' files') + ' sent to ' + S.profile.recruiter + ' for review. We’ll email you once they’ve all been checked.');
+      toast('✓ ' + items.length + (items.length === 1 ? ' file' : ' files') + ' received. You’re all done and can close this page. ' + S.profile.recruiter + ' will check them and we’ll email you once they’ve all been reviewed.', 15000);
     } catch (e) {
       toast('Something went wrong sending your files. Nothing was lost. Please try again. (' + e.message + ')');
     }
@@ -307,17 +307,25 @@
   // Live path: each file goes straight to the doctor's Drive folder through a
   // one-time upload link, then one submit call creates the ClickUp tasks.
   async function submitLive(items) {
-    const uploaded = [];
-    for (const { id, f } of items) {
+    const uploaded = new Array(items.length);
+    let n = 0;
+    const btn = $('submitBtn'), tray = $('trayText');
+    const show = () => { btn.textContent = 'Uploading ' + n + ' of ' + items.length + '…'; tray.textContent = 'Please keep this page open while your files upload'; };
+    show();
+    const one = async (k) => {
+      const { id, f } = items[k];
       const fileId = await window.PortalAuth.upload(id, S.choice[id] || null, f.file, f.name);
-      uploaded.push({ boxId: id, choice: S.choice[id] || null, fileId, fileName: f.name });
-    }
+      uploaded[k] = { boxId: id, choice: S.choice[id] || null, fileId, fileName: f.name };
+      n++; show();
+    };
+    for (let k = 0; k < items.length; k += 4) await Promise.all(items.slice(k, k + 4).map((x, j) => one(k + j))); // 4 at a time
+    btn.textContent = 'Saving…';
     await window.PortalAuth.call('submit', { states: S.profile.states, level: S.profile.level, files: uploaded });
   }
 
-  function toast(msg) {
+  function toast(msg, ms) {
     const t = $('toast'); t.textContent = msg; t.classList.remove('hidden');
-    clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.add('hidden'), 5000);
+    clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.add('hidden'), ms || 5000);
   }
 
   // ---------- events ----------
