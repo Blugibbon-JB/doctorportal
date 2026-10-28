@@ -285,6 +285,21 @@
     });
   }
 
+  // After a submit: what arrived, and what's still to do (by section), e.g. "please continue with your vaccinations and references".
+  function receivedMessage(n) {
+    const SECTION = { base: 'baseline documents', state: 'state documents', vacc: 'vaccinations', refs: 'references' };
+    const todo = [];
+    S.req.sections.forEach((sec) => {
+      if (sec.id === 'refs') { if ((S.sent || []).length < refCfg().required) todo.push(SECTION.refs); return; }
+      const open = S.req.boxes.filter((b) => b.section === sec.id && applies(b) && !isOptional(b))
+        .some((b) => ['missing', 'expired', 'rejected'].includes(stOf(b)));
+      if (open) todo.push(SECTION[sec.id] || String(sec.label || sec.id).toLowerCase());
+    });
+    const list = todo.length > 1 ? todo.slice(0, -1).join(', ') + ' and ' + todo[todo.length - 1] : todo[0];
+    return '✓ ' + n + (n === 1 ? ' file' : ' files') + ' received. ' + (n === 1 ? 'It' : 'These') + ' will be checked by our support team, and you’ll be notified when ' +
+      (n === 1 ? 'it has' : 'they have') + ' been approved. ' + (todo.length ? 'Please continue with your ' + list + '.' : '');
+  }
+
   // ---------- submit ----------
   async function submit() {
     const items = [];
@@ -297,7 +312,7 @@
       const ids = [...new Set(items.map((x) => x.id))];
       ids.forEach((id) => { S.status[id] = { st: 'review' }; delete S.staged[id]; });
       if (S.live) window.PortalAuth.savePrefs(S.profile);
-      toast('✓ ' + items.length + (items.length === 1 ? ' file' : ' files') + ' received. You’re all done and can close this page. ' + S.profile.recruiter + ' will check them and we’ll email you once they’ve all been reviewed.', 15000);
+      toast(receivedMessage(items.length), 20000);
     } catch (e) {
       toast('Something went wrong sending your files. Nothing was lost. Please try again. (' + e.message + ')');
     }
