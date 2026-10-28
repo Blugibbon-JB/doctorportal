@@ -107,12 +107,14 @@
     const S = window.PORTAL_REQ.clickup.fileStageOptions;
     const bySlot = {};
     Object.values(docs || {}).forEach((d) => {
-      const m = /(?:^|\s)1\.2\.([1-3])\s/.exec(d.name || '');
+      const m = /(?:^|\s)1\.[23]\.([1-3])\s/.exec(d.name || ''); // 1.2.N professional / filed clinical becomes 1.3.N
       if (!m || d.fileStage === S.archived) return;
       const slot = Number(m[1]);
       const e = bySlot[slot] || (bySlot[slot] = { slot, name: '', parts: {}, created: d.created });
       const after = String(d.name).split(' - ')[1];
       if (after && !e.name) e.name = after.replace(/\s+\d{2}\.\d{2}\.\d{2}.*$/, '').trim();
+      const filedAs = /\bREF \d\s+(.+?)\s+\d{2}\.\d{2}\.\d{2}\b/.exec(d.name || ''); // filed: "1.2.1 BG NSW Professional REF 1 Ann Lee 28.10.26 DR"
+      if (filedAs && !e.name) e.name = filedAs[1].trim();
       const type = /clinical/i.test(d.name) ? 'clinical' : 'professional';
       const st = d.fileStage === S.filed ? 'done' : d.fileStage === S.completed ? 'received' : 'waiting';
       e.parts[type] = st;
